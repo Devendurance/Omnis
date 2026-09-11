@@ -2,8 +2,10 @@
 // (Kept free of the server-only marker so unit tests can import it, matching
 // the convention of the hedera-x402 modules it guards.)
 
-import type { P4AEnvironment } from "../hedera-x402/config";
-
+import {
+  readPublicOrigin,
+  type P4AEnvironment,
+} from "../hedera-x402/config";
 export const DEMO_PURCHASES_ENV = "OMNIS_DEMO_PURCHASES_ENABLED" as const;
 export const DEMO_ALLOWLIST_ENV = "OMNIS_DEMO_ALLOWLIST" as const;
 export const DEMO_MAX_PER_SUBJECT_ENV =
@@ -25,6 +27,35 @@ type DemoCounter = {
 // validation, and a demo payer account funded with only a few cents of
 // testnet USDC. Documented as non-authoritative by design.
 const counters = new Map<string, DemoCounter>();
+export function isP4ADemoGateOpen(
+  env: P4AEnvironment = process.env,
+): boolean {
+  return (
+    env[DEMO_PURCHASES_ENV]?.trim() === "true" &&
+    readDemoAllowlist(env).length > 0
+  );
+}
+
+export function isPublicOriginValid(
+  env: P4AEnvironment = process.env,
+): boolean {
+  try {
+    return readPublicOrigin(env) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function resolveP4ALiveServiceStatus(
+  env: P4AEnvironment,
+  hederaConfigured: boolean,
+): "available" | "unavailable" {
+  if (env.NODE_ENV === "production") {
+    if (!isP4ADemoGateOpen(env)) return "unavailable";
+    if (!isPublicOriginValid(env)) return "unavailable";
+  }
+  return hederaConfigured ? "available" : "unavailable";
+}
 
 export function isDemoPurchasesEnabled(
   env: P4AEnvironment = process.env,
