@@ -302,9 +302,14 @@ export default function Home() {
                   and explainable. One record connects what you asked for with
                   what happened.
                 </p>
-                <ActionLink href="/app/proof" variant="outline">
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  <ActionLink href="/app/proof" variant="outline">
                   explore proof
-                </ActionLink>
+                  </ActionLink>
+                  <ActionLink href="/evidence" variant="outline">
+                  verified demo evidence
+                  </ActionLink>
+                </div>
               </div>
               <div className="proof-outline" data-reveal>
                 <p className="eyebrow">inside a proof bundle</p>
@@ -389,7 +394,7 @@ export default function Home() {
               <h2>workspace</h2>
               <Link href="/app">start a task</Link>
               <Link href="/app/tasks">tasks</Link>
-              <Link href="/app/activity">activity</Link>
+              <Link href="/evidence">verified evidence</Link>
               <Link href="/app/policies">policies</Link>
               <Link href="/app/agents">agents</Link>
               <Link href="/app/services">services</Link>

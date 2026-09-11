@@ -26,18 +26,25 @@ Mandate: "Pay this contractor 50 USDC, but check the wallet first. Spend no more
 
 ## Architecture diagram
 
-```text
-intent
--> deterministic policy (P2 caps, approval thresholds, owner isolation)
--> service discovery (/api/services registry)
--> Hedera x402/Blocky402 service purchase ($0.003 HTS USDC 0.0.429274)
--> evidence (observations, flags, remaining budget)
--> human approval (exact amount, recipient, asset)
--> Privy embedded wallet (primaryExecutionWallet, Arc Testnet switch)
--> Arc USDC settlement (testnet 5042002, USDC 0x3600...0000)
--> reconciliation (receipt and log verification, no resubmission)
--> OmnisProof (intent, plan, policy, purchase, approval, settlement)
+```mermaid
+flowchart LR
+    subgraph converse["LLM / conversation (no payment authority)"]
+        mandate["User mandate"] --> intent["Intent parser"]
+    end
+    subgraph execute["Deterministic execution (payment authority)"]
+        intent --> policy["Deterministic policy"]
+        policy --> discovery["Service discovery"]
+        discovery --> x402["Hedera x402 / Blocky402"]
+        x402 --> serviceEvidence["Service evidence"]
+        serviceEvidence --> approval["Human approval"]
+        approval --> wallet["Privy embedded wallet"]
+        wallet --> arc["Arc Testnet USDC"]
+        arc --> reconcile["Reconciliation"]
+        reconcile --> proof["OmnisProof"]
+    end
 ```
+
+The conversation proposes; only deterministic execution moves money. The LLM never sets transaction parameters: recipient, amount, asset, network, and price are fixed by the parsed mandate, policy caps, and allowlisted service descriptors, then verified again at signing and reconciliation.
 
 Key modules: `src/lib/intent`, `src/lib/domain` (policy, tasks, settlement state machines, receipts), `src/lib/services` (registry, discovery, hedera-x402 payer, server guards), `src/lib/settlement` (Arc/Circle adapter, final service, reconciliation), `src/lib/auth` (Privy client and server verifier), `src/app/api` (services, tasks, dev routes).
 
@@ -54,6 +61,8 @@ Final settlement runs on Arc Testnet (chain ID 5042002) as a plain ERC-20 USDC t
 Privy provides authentication and the embedded primaryExecutionWallet. Server routes verify the Privy access token and bind every task, settlement, approval, and proof to the token subject; a client-supplied owner that mismatches is rejected with 403. The client switches the embedded wallet to Arc Testnet before signing, never substitutes an external wallet for execution, and the server secret never leaves the server. Live evidence: the confirmed Arc transfer was wallet-approved by the task owner.
 
 ## Live transaction evidence
+
+Public read-only surface: `/evidence` renders this exact historical record for judges without login and without moving money.
 
 - Hedera x402 service payment: `0.0.7162784@1788995118.130839662`, $0.003 HTS USDC 0.0.429274, x402 v2 exact on hedera:testnet via Blocky402.
 - Arc Testnet settlement: `0xe16824170d9fb8bf8551be3877a80a425328a21ca158b21201301e6b087f7b7d`, block `61303876`, 0.01 USDC test transfer on chain 5042002.
@@ -131,7 +140,7 @@ P6B test mode executes a 0.01 USDC infrastructure check on Arc Testnet. The orig
 
 ## Start Fresh declaration
 
-Start Fresh status cannot be verified from this workspace: no `.git` directory, remote, branch, or commit history is present here, so prior history cannot be audited. The project is presented as built fresh for ETHOnline 2026 with no forked code to the owner's knowledge. Before submitting, initialize the repository, keep the full history public from the first push, and confirm the Start Fresh evidence item in `docs/submission-checklist.md`.
+This project was built fresh for ETHOnline 2026 with no forked code to the owner's knowledge. The workspace carries a Git worktree on branch `main` tracking remote `https://github.com/Devendurance/Omnis.git`, starting from an initial commit plus `build useOmnis hackathon MVP`, both dated 2026-09-11. Before submitting, push the full history public and confirm the Start Fresh evidence item in `docs/submission-checklist.md`.
 
 ## AI-assisted development disclosure
 

@@ -4,7 +4,7 @@
 
 The exact AI tools and models used across this project are not fully recorded in this repo. The human owner must confirm the final list before submission.
 
-Known: P8A hardening and documentation in this session were produced with AI coding assistance under human direction. Prior sessions (P0-P7 implementation): specific tools and models unrecorded, see the TODO below.
+Known: P8A hardening and documentation in this session were produced with AI coding assistance under human direction. Prior sessions (P0-P7 implementation): specific tools and models unrecorded, see the TODO below. P8B submission readiness (public `/evidence` surface, deployment doc, submission copy, Mermaid diagram, checklist) was likewise AI-assisted under human direction; no product features added, no P0-P7 financial semantics changed, no live payment executed.
 
 ## Human-directed process
 
