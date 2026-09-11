@@ -8,6 +8,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const STACK_QUERY =
   "(min-width: 1024px) and (min-height: 720px) and (pointer: fine) and (prefers-reduced-motion: no-preference)";
+const LENIS_QUERY = "(min-width: 1024px) and (pointer: fine)";
 
 function setNavState(
   header: HTMLElement,
@@ -47,21 +48,27 @@ export function LandingMotion() {
     let ticker: ((time: number) => void) | undefined;
     let onKeyDown: ((event: KeyboardEvent) => void) | undefined;
     let destroyLenis = () => undefined;
+    let createLenis = () => undefined;
     let keyboardMode = false;
     let stackEnabled = false;
     const stackMedia = window.matchMedia(STACK_QUERY);
+    const lenisMedia = window.matchMedia(LENIS_QUERY);
+    const reducedMotionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const reducedTransparencyMedia = window.matchMedia("(prefers-reduced-transparency: reduce)");
+    const forcedColorsMedia = window.matchMedia("(forced-colors: active)");
     const connection = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string };
     }).connection;
-    const motionAllowed =
+    const motionAllowed = () =>
       allowed &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      !window.matchMedia("(prefers-reduced-transparency: reduce)").matches &&
-      !window.matchMedia("(forced-colors: active)").matches &&
+      !reducedMotionMedia.matches &&
+      !reducedTransparencyMedia.matches &&
+      !forcedColorsMedia.matches &&
       connection?.saveData !== true &&
       !["slow-2g", "2g"].includes(connection?.effectiveType ?? "");
 
-    root.dataset.lenisState = motionAllowed ? "initializing" : "disabled";
+    root.dataset.lenisState =
+      motionAllowed() && lenisMedia.matches ? "initializing" : "disabled";
     root.dataset.stackEnabled = "false";
     root.dataset.stackMode = "flow";
     root.dataset.activeSection = "hero";
@@ -96,7 +103,7 @@ export function LandingMotion() {
         });
       });
 
-      if (!motionAllowed) return;
+      if (!motionAllowed()) return;
 
       const hero = root.querySelector<HTMLElement>(".hero-identity");
       if (hero) {
@@ -274,7 +281,7 @@ export function LandingMotion() {
     }, root);
 
     const syncStackState = () => {
-      stackEnabled = motionAllowed && stackMedia.matches && !keyboardMode;
+      stackEnabled = motionAllowed() && stackMedia.matches && !keyboardMode;
       root.dataset.stackEnabled = String(stackEnabled);
       root.dataset.stackMode = stackEnabled ? "sticky" : "flow";
       if (stackEnabled) {
@@ -325,12 +332,12 @@ export function LandingMotion() {
 
       if (immediate) {
         window.scrollTo({ top: destination, behavior: "auto" });
-      } else if (lenis && motionAllowed && !keyboardMode && !reduced) {
+      } else if (lenis && motionAllowed() && lenisMedia.matches && !keyboardMode && !reduced) {
         lenis.scrollTo(destination, { duration: 0.45, force: true });
       } else {
         window.scrollTo({
           top: destination,
-          behavior: reduced ? "auto" : "smooth",
+          behavior: reduced || !lenisMedia.matches ? "auto" : "smooth",
         });
       }
 
@@ -357,8 +364,10 @@ export function LandingMotion() {
       }
     };
     window.addEventListener("hashchange", onHashChange);
+    window.addEventListener("popstate", onHashChange);
 
-    if (motionAllowed) {
+    createLenis = () => {
+      if (lenis || !motionAllowed() || !lenisMedia.matches || keyboardMode) return;
       lenis = new Lenis({
         lerp: 0.085,
         smoothWheel: true,
@@ -371,29 +380,18 @@ export function LandingMotion() {
       lenis.on("scroll", onLenisScroll);
       ticker = (time) => lenis?.raf(time * 1000);
       gsap.ticker.add(ticker);
-      gsap.ticker.lagSmoothing(0);
       root.dataset.lenisState = "ready";
-
-      if (window.location.hash) {
-        requestAnimationFrame(() => {
-          const anchor = (window.location.hash.slice(1) || "main") as LandingAnchor;
-          if (["main", "hero", "policy", "services", "approval", "settlement", "proof", "cta"].includes(anchor)) {
-            navigateToAnchor(anchor, false);
-          }
-        });
-      }
 
       onKeyDown = (event) => {
         if (event.key !== "Tab" || keyboardMode) return;
         keyboardMode = true;
         const focusTarget = document.activeElement as HTMLElement | null;
         const before = focusTarget?.getBoundingClientRect().top ?? 0;
+        destroyLenis();
         syncStackState();
         requestAnimationFrame(() => {
           const after = focusTarget?.getBoundingClientRect().top ?? before;
-          if (focusTarget) {
-            window.scrollBy({ top: after - before, behavior: "auto" });
-          }
+          if (focusTarget) window.scrollBy({ top: after - before, behavior: "auto" });
         });
       };
       window.addEventListener("keydown", onKeyDown);
@@ -404,15 +402,52 @@ export function LandingMotion() {
         if (ticker) gsap.ticker.remove(ticker);
         lenis?.destroy();
         lenis = undefined;
-        root.dataset.lenisState = "destroyed";
+        ticker = undefined;
+        root.dataset.lenisState = "disabled";
       };
+    };
+
+    const syncLenis = () => {
+      if (motionAllowed() && lenisMedia.matches && !keyboardMode) createLenis();
+      else if (lenis) destroyLenis();
+      if (!lenis && root.dataset.lenisState !== "disabled") {
+        root.dataset.lenisState = "disabled";
+      }
+    };
+
+    if (window.location.hash) {
+      requestAnimationFrame(() => {
+        const anchor = (window.location.hash.slice(1) || "main") as LandingAnchor;
+        if (["main", "hero", "policy", "services", "approval", "settlement", "proof", "cta"].includes(anchor)) {
+          navigateToAnchor(anchor, false);
+        }
+      });
     }
+
+    const onLenisMediaChange = () => {
+      syncLenis();
+      syncStackState();
+    };
+    const onMotionPreferenceChange = () => {
+      syncLenis();
+      syncStackState();
+    };
+    lenisMedia.addEventListener("change", onLenisMediaChange);
+    reducedMotionMedia.addEventListener("change", onMotionPreferenceChange);
+    reducedTransparencyMedia.addEventListener("change", onMotionPreferenceChange);
+    forcedColorsMedia.addEventListener("change", onMotionPreferenceChange);
+    syncLenis();
 
     return () => {
       destroyLenis();
       document.removeEventListener("click", onAnchorClick);
       window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener("popstate", onHashChange);
       stackMedia.removeEventListener("change", syncStackState);
+      lenisMedia.removeEventListener("change", onLenisMediaChange);
+      reducedMotionMedia.removeEventListener("change", onMotionPreferenceChange);
+      reducedTransparencyMedia.removeEventListener("change", onMotionPreferenceChange);
+      forcedColorsMedia.removeEventListener("change", onMotionPreferenceChange);
       context.revert();
       panels.forEach((panel) => {
         delete panel.dataset.stackIndex;

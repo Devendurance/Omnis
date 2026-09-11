@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, CircleHelp, ShieldCheck, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePreview } from "@/components/preview";
-import { CircleSettlementCard } from "./circle-settlement-card";
+import { WalletBalanceSummary } from "./wallet-balance-summary";
 
 export function WalletView() {
   const auth = useAuth();
@@ -48,6 +48,9 @@ export function WalletView() {
             ? "Your Privy embedded EVM wallet is connected as the primary execution wallet for useOmnis tasks."
             : "Connect your wallet or log in to establish an embedded execution wallet and scope tasks to your identity."}
         </p>
+        <p className="wallet-authorization-note">
+          Omnis uses this wallet only for actions you explicitly authorize.
+        </p>
         <div className="wallet-actions">
           {auth.authenticated ? (
             <button
@@ -90,7 +93,7 @@ export function WalletView() {
               </div>
             )}
             <div>
-              <dt>execution wallet</dt>
+              <dt>primary execution wallet</dt>
               <dd className="mono-break">
                 {executionWallet?.address ?? "none provisioned"}
               </dd>
@@ -119,10 +122,6 @@ export function WalletView() {
               <dt>supported role</dt>
               <dd>primaryExecutionWallet (execution readiness)</dd>
             </div>
-            <div>
-              <dt>balance</dt>
-              <dd className="muted">balance not loaded</dd>
-            </div>
           </dl>
         </div>
         {auth.connectedExternalWallets.length > 0 && (
@@ -133,7 +132,7 @@ export function WalletView() {
                 <li key={`ext-wallet-${ext.address.toLowerCase()}-${idx}`}>
                   <span className="mono-break">{ext.address}</span>
                   <span className="muted">
-                    ({ext.walletClientType} · {ext.role})
+                    non-execution wallet · {ext.walletClientType}
                   </span>
                 </li>
               ))}
@@ -166,7 +165,7 @@ export function WalletView() {
         </section>
       </div>
       </div>
-      <CircleSettlementCard key={auth.ownerSubject ?? "unauthenticated"} />
+      <WalletBalanceSummary />
     </div>
   );
 }

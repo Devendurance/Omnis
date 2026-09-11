@@ -108,7 +108,11 @@ test.describe("P5A Browser Authentication & Workspace Isolation", () => {
     await expect(page.getByText("Your execution wallet.")).toBeVisible();
     await expect(page.getByText(USER_A_WALLET)).toBeVisible();
     await expect(page.getByText("privy embedded wallet")).toBeVisible();
-    await expect(page.getByText("balance not loaded")).toBeVisible();
+    const balanceMetric = page
+      .locator(".wallet-summary-metric")
+      .filter({ hasText: "Arc USDC balance" });
+    await expect(balanceMetric).toBeVisible();
+    await expect(balanceMetric).not.toContainText("0.00 USDC");
     await expect(
       page.getByText("primaryExecutionWallet (execution readiness)"),
     ).toBeVisible();

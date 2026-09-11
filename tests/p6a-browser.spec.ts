@@ -27,7 +27,7 @@ test.describe("P6A Browser Circle + Arc Settlement Surface", () => {
       };
     });
     // Set up authenticated mock state before navigating
-    await page.goto("/app/wallet");
+    await page.goto("/app/dev/settlement");
     await page.evaluate(
       ({ key, val }) => {
         localStorage.setItem(key, JSON.stringify(val));

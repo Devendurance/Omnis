@@ -125,7 +125,7 @@ export function ProductNavigation() {
             aria-controls="product-mobile-nav"
             onClick={() => setOpen(true)}
           >
-            <Menu size={20} />
+            <Menu size={20} aria-hidden="true" />
           </button>
           <span className="header-brand">
             <Wordmark compact tone="ink" />
@@ -162,10 +162,11 @@ export function ProductNavigation() {
           <button
             type="button"
             className="button button-outline app-header-login-btn"
+            aria-label="connect wallet"
             onClick={handleAuthAction}
           >
             <Wallet size={15} aria-hidden="true" />
-            connect wallet
+            <span>connect wallet</span>
           </button>
         )}
       </header>
@@ -194,6 +195,16 @@ export function ProductNavigation() {
         <nav aria-label="Mobile product navigation">
           <NavItems onNavigate={() => close(true)} />
         </nav>
+        {auth.authenticated && (
+          <div className="drawer-account-actions">
+            <Link href="/app/wallet" className="button button-outline" onClick={() => close(true)}>
+              <Wallet size={14} aria-hidden="true" /> view wallet
+            </Link>
+            <button type="button" className="button button-outline" onClick={() => { void auth.logout(); close(); }}>
+              log out
+            </button>
+          </div>
+        )}
         <p className="eyebrow drawer-note">interface preview</p>
       </dialog>
     </>
@@ -251,7 +262,7 @@ export function MarketingNavigation() {
           aria-controls="marketing-mobile-nav"
           onClick={() => setOpen(true)}
         >
-          <Menu size={20} />
+            <Menu size={20} aria-hidden="true" />
         </button>
       </div>
       <dialog

@@ -29,6 +29,7 @@ export default defineConfig({
     env: {
       OMNIS_ALLOW_MOCK_AUTH: "true",
       ENABLE_P6B_TEST_MODE: "true",
+      ENABLE_P6A_DEV_HARNESS: "true",
     },
   },
 });

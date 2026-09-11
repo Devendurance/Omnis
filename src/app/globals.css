@@ -2083,6 +2083,90 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 32px;
+  min-width: 0;
+  width: 100%;
+}
+
+.wallet-balance-summary {
+  width: 100%;
+  min-width: 0;
+  padding: 28px 32px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fcfaff;
+}
+
+.wallet-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.wallet-summary-heading h2 {
+  margin-top: 8px;
+  font-family: var(--font-display), sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.wallet-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.wallet-summary-metric {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.wallet-summary-metric strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.wallet-summary-metric .metric-subtext {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.wallet-summary-metric .metric-label {
+  color: var(--muted);
+}
+
+.wallet-summary-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--blocked);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.wallet-authorization-note {
+  margin-top: 16px;
+  color: var(--glow);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .circle-settlement-card {
@@ -4718,5 +4802,230 @@ dialog[open] {
   }
   .conversational-turn {
     animation: none;
+  }
+}
+
+/* P8C structural containment and responsive polish. */
+.product-shell,
+.app-header,
+.app-header-context,
+.app-header-auth-group,
+.app-main,
+.workspace-page,
+.collection-page,
+.wallet-page,
+.conversational-app-page,
+.conversational-composer-container,
+.conversational-turn-content,
+.conversational-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar {
+  overflow-x: clip;
+}
+
+.sidebar > *,
+.sidebar nav,
+.nav-group,
+.nav-item,
+.brand-link {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar .brand-link {
+  padding-inline: 8px;
+}
+
+.sidebar .brand-lockup {
+  max-width: 100%;
+  gap: 6px;
+}
+
+.sidebar .wordmark-small {
+  font-size: 22px;
+  letter-spacing: -1.2px;
+}
+
+.technical-value,
+.mono-break,
+.demo-box code,
+.wallet-summary-metric strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.demo-box {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.demo-box > dl,
+.demo-box > dl > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.demo-box > dl > div {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.35fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.demo-box > dl dt,
+.demo-box > dl dd {
+  min-width: 0;
+  margin-inline: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.nav-dialog {
+  max-width: calc(100dvw - 28px);
+  overflow-x: hidden;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-right: max(20px, env(safe-area-inset-right));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  padding-left: max(20px, env(safe-area-inset-left));
+}
+
+.drawer-account-actions {
+  display: grid;
+  gap: 8px;
+  margin: 24px 14px 0;
+}
+
+.drawer-account-actions .button {
+  width: 100%;
+}
+
+.marketing-header,
+.app-header {
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+.marketing-header > a,
+.header-brand {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.marketing-actions,
+.mobile-menu-button,
+.marketing-menu-button,
+.app-header-auth-group,
+.app-header .button {
+  flex-shrink: 0;
+}
+
+.marketing-menu-button,
+.mobile-menu-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.conversational-sticky-composer {
+  min-width: 0;
+}
+
+.conversational-composer-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 599px) {
+  .marketing-header {
+    gap: 8px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: 12px;
+  }
+
+  .marketing-header > a .wordmark,
+  .header-brand .wordmark {
+    display: none;
+  }
+
+  .marketing-header > a .brand-mark,
+  .header-brand .brand-mark {
+    width: 28px;
+  }
+
+  .marketing-actions {
+    gap: 4px;
+  }
+
+  .marketing-actions > .button {
+    min-height: 44px;
+    padding-inline: 14px;
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .app-header {
+    height: 76px;
+    gap: 8px;
+  }
+
+  .app-header-context {
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
+  .app-header .header-brand {
+    display: block;
+  }
+
+  .app-header-wallet-chip,
+  .app-header-login-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .app-header-wallet-chip span,
+  .app-header-login-btn span,
+  .app-header-logout-btn {
+    display: none;
+  }
+
+  .wallet-summary-heading {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .wallet-summary-heading .button {
+    width: 100%;
+  }
+
+  .wallet-balance-summary {
+    padding: 20px 16px;
+  }
+
+  .wallet-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .conversational-sticky-composer {
+    left: 0;
+    right: 0;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+}
+
+@media (min-width: 600px) {
+  .marketing-header > a .wordmark,
+  .header-brand .wordmark {
+    display: inline;
   }
 }

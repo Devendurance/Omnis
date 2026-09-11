@@ -330,14 +330,14 @@ test("footer landing anchors resolve from the absolute bottom", async ({
   }
 });
 
-test("mobile landing keeps conventional flow while retaining landing smoothing", async ({
+test("mobile landing keeps conventional flow with native scrolling", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
   await expect(page.locator("main.landing")).toHaveAttribute(
     "data-lenis-state",
-    "ready",
+    "disabled",
   );
   await expect(page.locator("main.landing")).toHaveAttribute(
     "data-stack-enabled",
