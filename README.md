@@ -1,3 +1,5 @@
+<div align="center">
+
 # useOmnis
 
 > **Delegate the financial task, not your wallet.**
@@ -16,6 +18,7 @@
 
 Built for **ETHOnline 2026**.
 
+</div>
 ---
 
 ## Why useOmnis exists

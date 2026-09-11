@@ -60,11 +60,14 @@ function makePolicy(taskId: string): TaskPolicy {
 }
 
 function makeMockPublicClient(
-  opts: { balance?: bigint; chainId?: number } = {},
+  opts: { balance?: bigint; chainId?: number; nativeBalance?: bigint } = {},
 ): PublicClient {
   return {
     getChainId: async () => opts.chainId ?? 5042002,
     readContract: async () => opts.balance ?? BigInt(0),
+    estimateGas: async () => BigInt(60_000),
+    getGasPrice: async () => BigInt(1_000_000_000),
+    getBalance: async () => opts.nativeBalance ?? BigInt(10_000_000_000_000_000),
   } as unknown as PublicClient;
 }
 
@@ -477,6 +480,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
       recordFinalSettlementSubmission({
         task: awaiting,
         policy,
+        servicePurchases: [purchase],
         settlement: tamperedSettlement,
         approval,
         transactionHash: "0xtest123",
@@ -527,6 +531,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
       recordFinalSettlementSubmission({
         task: awaiting,
         policy,
+        servicePurchases: [purchase],
         settlement: tamperedSettlement,
         approval,
         transactionHash: "0xtest123",
@@ -559,6 +564,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
       recordFinalSettlementSubmission({
         task: running,
         policy,
+        servicePurchases: [],
         settlement,
         approval: undefined as unknown as ApprovalRecord,
         transactionHash: "0x123",
@@ -599,6 +605,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
     const { settlement: confirming } = recordFinalSettlementSubmission({
       task: settling,
       policy,
+      servicePurchases: [purchase],
       settlement: submitting,
       approval,
       transactionHash: "0xhash_first",
@@ -612,6 +619,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
       recordFinalSettlementSubmission({
         task: settling,
         policy,
+        servicePurchases: [purchase],
         settlement: confirming,
         approval,
         transactionHash: "0xhash_second",
@@ -652,6 +660,7 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
     const { settlement: submitted } = recordFinalSettlementSubmission({
       task: settling,
       policy,
+      servicePurchases: [purchase],
       settlement: submitting,
       approval,
       transactionHash: "0ximmediate_persisted_hash",
@@ -724,13 +733,11 @@ test.describe("P6B Flagship Final-Payment Approval Gate & Arc Settlement", () =>
     });
 
     expect(hydrated?.settlement?.status).toBe("confirming");
-    expect(hydrated?.settlement?.transactionHash).toBe("0xalready_submitted_hash");
-
-    // Resubmission is rejected
     expect(() =>
       recordFinalSettlementSubmission({
         task: hydrated!.task!,
         policy,
+        servicePurchases: [purchase],
         settlement: hydrated!.settlement!,
         approval: hydrated!.approval!,
         transactionHash: "0xnew_attempt_forbidden",

@@ -892,6 +892,18 @@ export function InlineApprovalCard({
             <span className="conversational-meta-sub">max service allowance</span>
           </div>
         )}
+        {preflight && (
+          <div className="conversational-meta-box">
+            <span className="conversational-meta-label">SERVICE SPEND</span>
+            <span className="conversational-meta-val">
+              ${formatMoney(preflight.serviceAmountSpent)}
+            </span>
+            <span className="conversational-meta-sub">
+              remaining ${formatMoney(preflight.serviceBudgetRemaining)} of
+              service budget
+            </span>
+          </div>
+        )}
       </div>
       <p className="final-payment-truth muted" style={{ marginTop: "12px", fontSize: "13px" }}>
         Payment not sent.{" "}
@@ -1005,18 +1017,20 @@ export function InlineApprovalCard({
               {approveButtonText}
             </button>
 
-            <button
-              type="button"
-              className="button button-outline"
-              style={{ fontSize: "11px", opacity: 0.8 }}
-              onClick={() => setTestMode(!testMode)}
-              disabled={isSubmitting}
-            >
-              {testMode ? "disable test mode" : "enable 0.01 test mode"}
-            </button>
+            {testMode && (
+              <button
+                type="button"
+                className="button button-outline"
+                style={{ fontSize: "11px", opacity: 0.8 }}
+                onClick={() => setTestMode(!testMode)}
+                disabled={isSubmitting}
+              >
+                disable test mode
+              </button>
+            )}
           </div>
 
-          {process.env.NODE_ENV !== "production" && (
+          {testMode && process.env.NODE_ENV !== "production" && (
             <div className="conversational-dev-recovery">
               <span className="eyebrow">
                 recover existing test settlement:

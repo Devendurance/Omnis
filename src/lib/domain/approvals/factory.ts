@@ -1,13 +1,17 @@
 import { raiseDomainError } from "../errors";
 import {
+  addMoney,
   assertMoney,
   moneyEquals,
+  moneyZero,
   normalizeAsset,
   type Money,
 } from "../money";
 import type {
   ApprovalRecord,
+  ApprovalServiceEvidence,
   FinancialTask,
+  ServicePurchase,
   SettlementExecution,
   TaskPolicy,
 } from "../types";
@@ -40,6 +44,22 @@ export function createApprovalRecord(
   const executionAmount = input.executionAmount ?? input.amount;
   assertMoney(requestedAmount);
   assertMoney(executionAmount);
+  const serviceEvidence = input.serviceEvidence;
+  if (serviceEvidence !== undefined) {
+    if (
+      !Array.isArray(serviceEvidence.paidPurchaseIds) ||
+      serviceEvidence.paidPurchaseIds.length === 0 ||
+      serviceEvidence.paidPurchaseIds.some(
+        (entry) => typeof entry !== "string" || !entry.trim(),
+      )
+    ) {
+      return raiseDomainError(
+        "APPROVAL_SERVICE_EVIDENCE_MISMATCH",
+        "approval service evidence must list at least one paid purchase",
+      );
+    }
+    assertMoney(serviceEvidence.paidTotal);
+  }
   if (normalizeAsset(input.asset) !== input.amount.asset) {
     return raiseDomainError(
       "APPROVAL_ASSET_MISMATCH",
@@ -147,6 +167,64 @@ export function assertApprovalForSettlement(
     );
   }
   assertApprovalPolicySnapshot(approval, execution.policySnapshot);
+}
+
+export function buildApprovalServiceEvidence(
+  purchases: readonly ServicePurchase[],
+): ApprovalServiceEvidence {
+  const paid = purchases.filter(
+    (entry): entry is ServicePurchase & { paidAmount: Money } =>
+      entry.status === "paid" && entry.paidAmount !== undefined,
+  );
+  if (paid.length === 0) {
+    return raiseDomainError(
+      "APPROVAL_SERVICE_EVIDENCE_MISMATCH",
+      "approval requires at least one paid service purchase",
+    );
+  }
+  const anchor = paid[0].paidAmount;
+  let total = moneyZero(anchor.asset, anchor.decimals);
+  for (const entry of paid) {
+    total = addMoney(total, entry.paidAmount);
+  }
+  return Object.freeze({
+    paidPurchaseIds: Object.freeze(paid.map((entry) => entry.id).sort()),
+    paidTotal: total,
+  });
+}
+
+export function assertApprovalServiceEvidence(
+  purchases: readonly ServicePurchase[],
+  approval: ApprovalRecord,
+): void {
+  const evidence = approval.serviceEvidence;
+  if (!evidence) return;
+  const byId = new Map(purchases.map((entry) => [entry.id, entry] as const));
+  for (const id of evidence.paidPurchaseIds) {
+    const entry = byId.get(id);
+    if (!entry || entry.status !== "paid" || entry.paidAmount === undefined) {
+      return raiseDomainError(
+        "APPROVAL_SERVICE_EVIDENCE_MISMATCH",
+        `bound paid service purchase ${id} is missing or no longer paid`,
+      );
+    }
+  }
+  let total = moneyZero(
+    evidence.paidTotal.asset,
+    evidence.paidTotal.decimals,
+  );
+  for (const id of evidence.paidPurchaseIds) {
+    const entry = byId.get(id);
+    if (entry?.paidAmount !== undefined) {
+      total = addMoney(total, entry.paidAmount);
+    }
+  }
+  if (!moneyEquals(total, evidence.paidTotal)) {
+    return raiseDomainError(
+      "APPROVAL_SERVICE_EVIDENCE_MISMATCH",
+      "paid service total changed since approval",
+    );
+  }
 }
 
 function sameStringList(

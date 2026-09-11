@@ -315,7 +315,7 @@ export default function ProofRecordPage({
                   display: "block",
                 }}
               >
-                TEST SETTLEMENT
+                {proof.testMode ? "TEST SETTLEMENT" : "FINAL SETTLEMENT"}
               </span>
               <strong
                 style={{
@@ -386,6 +386,49 @@ export default function ProofRecordPage({
                   }}
                 >
                   {proof.originalPaymentDelivered ? "DELIVERED" : "NOT EXECUTED"}
+                </strong>
+                <span
+                  style={{
+                    fontFamily: "JetBrains Mono",
+                    fontSize: "11px",
+                    color: "#666",
+                  }}
+                >
+                  Mandate:{" "}
+                  {proof.task.paymentAmount
+                    ? `${formatMoney(proof.task.paymentAmount)} ${proof.task.paymentAmount.asset}`
+                    : "not recorded"}
+                </span>
+              </div>
+            )}
+            {!proof.testMode && proof.originalPaymentDelivered && (
+              <div
+                style={{
+                  background: "#FFFFFF",
+                  padding: "16px",
+                  borderRadius: "12px",
+                  border: "1px solid #E6DCF5",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "JetBrains Mono",
+                    fontSize: "11px",
+                    color: "#666",
+                    display: "block",
+                  }}
+                >
+                  ORIGINAL PAYMENT
+                </span>
+                <strong
+                  style={{
+                    fontSize: "15px",
+                    color: "#2B0F6E",
+                    display: "block",
+                    marginTop: "4px",
+                  }}
+                >
+                  EXECUTED
                 </strong>
                 <span
                   style={{
@@ -596,7 +639,11 @@ export default function ProofRecordPage({
               <>
                 <dt style={{ color: "#666" }}>amount delivered:</dt>
                 <dd style={{ fontFamily: "JetBrains Mono", fontWeight: "bold" }}>
-                  {finalPayment?.amount ? `${formatMoney(finalPayment.amount)} ${finalPayment.amount.asset}` : "50 USDC"}
+                  {finalPayment?.amount ? `${formatMoney(finalPayment.amount)} ${finalPayment.amount.asset}` : "not recorded"}
+                </dd>
+                <dt style={{ color: "#666" }}>original payment:</dt>
+                <dd style={{ fontFamily: "JetBrains Mono", color: "#2B0F6E", fontWeight: "bold" }}>
+                  {proof.originalPaymentDelivered ? "EXECUTED" : "NOT EXECUTED"}
                 </dd>
               </>
             )}

@@ -563,6 +563,8 @@ function FinalPaymentGate({
       if (!isCurrentOperation()) return;
 
       setSubmitStep("signing");
+      let submitSession: TaskSession = updatedSession;
+      let earlySubmittedHash: string | null = null;
       const evidence = await executeCircleSettlement({
         params: {
           sourceWallet: authorized.sourceWallet,
@@ -575,7 +577,44 @@ function FinalPaymentGate({
         },
         provider,
         onTxHashObserved: async (hash) => {
-          if (isCurrentOperation()) setTxHash(hash);
+          if (!isCurrentOperation()) return;
+          setTxHash(hash);
+          if (earlySubmittedHash === hash) return;
+          earlySubmittedHash = hash;
+          try {
+            const earlyRes = await fetch("/api/tasks/final-settlement", {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${token}`,
+                "content-type": "application/json",
+                accept: "application/json",
+              },
+              body: JSON.stringify({
+                action: "submit",
+                session: JSON.parse(
+                  serializeDraftSession(updatedSession, registry),
+                ),
+                settlement: approvedSettlement,
+                transactionHash: hash,
+                testMode: isTestModeActive,
+              }),
+            });
+            const earlyData = await earlyRes.json();
+            if (!isCurrentOperation()) return;
+            if (earlyRes.ok && earlyData.session) {
+              submitSession =
+                hydrateDraftSession(
+                  JSON.stringify(earlyData.session),
+                  registry,
+                  operationOwner
+                    ? { expectedOwnerSubject: operationOwner }
+                    : {},
+                ) ?? updatedSession;
+              commitSession(submitSession, operationRunToken);
+            }
+          } catch {
+            // hash stays in state; the post-evidence submit retries
+          }
         },
       });
       if (!isCurrentOperation()) return;
@@ -593,7 +632,7 @@ function FinalPaymentGate({
         },
         body: JSON.stringify({
           action: "submit",
-          session: JSON.parse(serializeDraftSession(updatedSession, registry)),
+          session: JSON.parse(serializeDraftSession(submitSession, registry)),
           settlement: approvedSettlement,
           transactionHash: observedTxHash,
           testMode: isTestModeActive,

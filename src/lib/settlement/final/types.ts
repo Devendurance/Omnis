@@ -20,6 +20,9 @@ export type FinalSettlementPreflight = Readonly<{
   arcChainReadiness: boolean;
   arcUsdcBalance: Money;
   sufficientBalance: boolean;
+  nativeGasBalanceWei: bigint;
+  nativeGasRequiredWei: bigint;
+  sufficientGas: boolean;
   walletCheckCompleted: boolean;
   serviceAmountSpent: Money;
   serviceBudgetRemaining: Money;
@@ -39,6 +42,9 @@ export type SerializedFinalSettlementPreflight = Readonly<{
   arcChainReadiness: boolean;
   arcUsdcBalance: SerializedMoney;
   sufficientBalance: boolean;
+  nativeGasBalanceWei: string;
+  nativeGasRequiredWei: string;
+  sufficientGas: boolean;
   walletCheckCompleted: boolean;
   serviceAmountSpent: SerializedMoney;
   serviceBudgetRemaining: SerializedMoney;

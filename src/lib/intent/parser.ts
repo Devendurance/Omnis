@@ -78,8 +78,11 @@ const STANDALONE_ASSET_PATTERN =
 const TOKEN_AMOUNT_PATTERN =
   /(\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?\s*([A-Za-z][A-Za-z0-9._-]*)\b/g;
 
+const PAYMENT_VERB_SOURCE = "pay(?:ing)?|send(?:ing)?|transfer(?:ring)?|payment";
+const PAYMENT_VERB_PATTERN = new RegExp(`\\b(?:${PAYMENT_VERB_SOURCE})\\b`, "i");
+
 const BUDGET_KEYWORD_PATTERN =
-  /\b(?:spend|budget|allowance|cap|capped(?:\s+at)?|max(?:imum)?|up to|no more than)\b[^0-9$,;.]{0,48}\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)/gi;
+  /\b(?:spend|budget|allowance|cap|capped(?:\s+at)?|max(?:imum)?|up to|no more than|at most)\b[^0-9$,;.]{0,48}\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)/gi;
 const BUDGET_SUFFIX_PATTERN =
   /\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?:USD|dollars?)?\s*(?:service|research|check(?:ing)?)?\s+(?:budget|cap|allowance|max)\b/gi;
 const EXPLICIT_CAP_PATTERN =
@@ -87,6 +90,79 @@ const EXPLICIT_CAP_PATTERN =
 const NUMBER_PATTERN = /\d+(?:,\d{3})*(?:\.\d+)?/g;
 const ZERO_PAYMENT_AMBIGUITY = "payment amount must be greater than zero";
 
+const WORD_NUMBERS: Readonly<Record<string, number>> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
+const WORD_CENTS_PATTERN = new RegExp(
+  `\\b(${Object.keys(WORD_NUMBERS).join("|")})(?:[\\s-]+(one|two|three|four|five|six|seven|eight|nine))?\\s*cents?\\b`,
+  "gi",
+);
+const WORD_BUDGET_CONTEXT_PATTERN =
+  /\b(?:at most|up to|no more than|max(?:imum)?|spend|budget|allowance|cap|capped)\b/i;
+
+function wordCountToNumber(text: string): number | undefined {
+  const tokens = text.toLowerCase().split(/[\s-]+/);
+  if (tokens.length === 1) {
+    return WORD_NUMBERS[tokens[0]];
+  }
+  if (tokens.length === 2) {
+    const tens = WORD_NUMBERS[tokens[0]];
+    const ones = WORD_NUMBERS[tokens[1]];
+    if (
+      tens !== undefined &&
+      ones !== undefined &&
+      tens >= 20 &&
+      tens % 10 === 0 &&
+      ones >= 1 &&
+      ones <= 9
+    ) {
+      return tens + ones;
+    }
+  }
+  return undefined;
+}
+
+function extractWordCentBudgets(input: string): string[] {
+  const amounts: string[] = [];
+  for (const match of input.matchAll(WORD_CENTS_PATTERN)) {
+    const phrase = match[2] ? `${match[1]} ${match[2]}` : match[1];
+    const cents = wordCountToNumber(phrase);
+    if (cents === undefined) continue;
+    const before = input.slice(Math.max(0, (match.index ?? 0) - 28), match.index ?? 0);
+    if (!WORD_BUDGET_CONTEXT_PATTERN.test(before)) continue;
+    const dollars = cents / 100;
+    const text = dollars.toFixed(2);
+    amounts.push(text.replace(/0$/, "").replace(/\.$/, ".0"));
+  }
+  return amounts;
+}
 function normalizeAssetToken(
   token: string,
   allowUnknownLowercase: boolean,
@@ -137,7 +213,7 @@ function extractPaymentCandidates(input: string): Array<{
     asset: string;
     index: number;
   }> = [];
-  const command = /\b(?:pay|send|transfer)\b/i.exec(input);
+  const command = PAYMENT_VERB_PATTERN.exec(input);
   const paymentStart = command
     ? command.index + command[0].length
     : 0;
@@ -165,7 +241,7 @@ function extractPaymentCandidates(input: string): Array<{
     const budgetMatch =
       /\b(?:spend|budget|allowance|cap|checking|research)\b/i.exec(before);
     const paymentAfterBudget = budgetMatch
-      ? /\b(?:pay|send|transfer)\b/i.test(before.slice(budgetMatch.index))
+      ? PAYMENT_VERB_PATTERN.test(before.slice(budgetMatch.index))
       : false;
     const budgetContext =
       input[index - 1] === "$" ||
@@ -184,7 +260,7 @@ function extractNumericPayment(
   input: string,
   knownBudgetAmounts: Set<string> = new Set(),
 ): string[] {
-  const command = /\b(?:pay|send|transfer)\b/i.exec(input);
+  const command = PAYMENT_VERB_PATTERN.exec(input);
   if (!command || command.index === undefined) return [];
   const suffix = input.slice(command.index + command[0].length);
   const limitStart = suffix.search(
@@ -219,8 +295,16 @@ function extractRecipients(input: string): string[] {
 }
 
 function detectType(input: string): FinancialTaskType | undefined {
-  const hasPaymentVerb = /\b(?:pay|send|transfer|payment|paying)\b/i.test(input);
+  const hasPaymentVerb = PAYMENT_VERB_PATTERN.test(input);
+  const hasSequentialCheckThenPay =
+    /\bcheck\b[\s\S]{0,80}\bthen\s+(?:pay|send|transfer|sending|transferring|paying)\b/i.test(
+      input,
+    ) ||
+    /\bcheck\s+0x[a-fA-F0-9]{4,}\b[\s\S]{0,80}\b(?:pay|send|transfer|sending|transferring|paying)\b/i.test(
+      input,
+    );
   const hasWalletCheck =
+    hasSequentialCheckThenPay ||
     /\b(?:check|checking|verify|inspect|screen|risk)\b[\s\S]{0,48}\b(?:wallet|address|recipient)\b/i.test(
       input,
     ) ||
@@ -275,6 +359,9 @@ function extractBudgetAmounts(input: string): string[] {
   }
   for (const match of input.matchAll(BUDGET_SUFFIX_PATTERN)) {
     amounts.add(match[1]);
+  }
+  for (const wordAmount of extractWordCentBudgets(input)) {
+    amounts.add(wordAmount);
   }
   return [...amounts];
 }

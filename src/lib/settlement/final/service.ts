@@ -1,8 +1,10 @@
-import type { PublicClient } from "viem";
+import { encodeFunctionData, type PublicClient } from "viem";
 import {
-  createApprovalRecord,
   assertApprovalForSettlement,
+  assertApprovalServiceEvidence,
   assertPolicySnapshotsEqual,
+  buildApprovalServiceEvidence,
+  createApprovalRecord,
 } from "../../domain/approvals/factory";
 import { raiseDomainError } from "../../domain/errors";
 import {
@@ -39,6 +41,7 @@ import {
   ARC_TESTNET_USDC_ADDRESS,
   ARC_TESTNET_USDC_DECIMALS,
   ARC_TESTNET_USDC_SYMBOL,
+  ERC20_ABI,
 } from "../arc/config";
 import {
   fetchArcScanTxInfo,
@@ -83,10 +86,10 @@ export type ApproveFinalSettlementInput = Readonly<{
   testMode?: boolean;
   now?: string;
 }>;
-
 export type SubmitFinalSettlementInput = Readonly<{
   task: FinancialTask;
   policy: TaskPolicy;
+  servicePurchases: readonly ServicePurchase[];
   settlement: SettlementExecution;
   approval: ApprovalRecord;
   transactionHash: string;
@@ -106,14 +109,14 @@ export type ReconcileFinalSettlementInput = Readonly<{
   ) => Promise<ArcScanTxInfoResult | null>;
   now?: string;
 }>;
-
 export function isWalletCheckPaid(
   servicePurchases: readonly ServicePurchase[],
 ): boolean {
   return servicePurchases.some(
     (purchase) =>
       purchase.status === "paid" &&
-      purchase.serviceId === "useomnis-wallet-activity-x402",
+      purchase.serviceId === "useomnis-wallet-activity-x402" &&
+      purchase.serviceResult !== undefined,
   );
 }
 
@@ -167,7 +170,11 @@ export function assertSettlementMatchesTaskTruth(
       );
     }
   }
-  if (!task.recipient || settlement.recipient.toLowerCase() !== task.recipient.toLowerCase()) {
+  if (
+    !task.recipient ||
+    !/^0x[0-9a-fA-F]{40}$/.test(task.recipient.trim()) ||
+    settlement.recipient.toLowerCase() !== task.recipient.toLowerCase()
+  ) {
     raiseDomainError(
       "SETTLEMENT_RECIPIENT_MISMATCH",
       `settlement recipient ${settlement.recipient} does not match task recipient ${task.recipient}`,
@@ -209,7 +216,7 @@ export async function runFinalSettlementPreflight(
     blockers.push("Final settlement requires a pay_with_check task");
   }
 
-  if (task.status !== "awaiting_approval" && task.status !== "running") {
+  if (task.status !== "awaiting_approval") {
     blockers.push(
       `Task status ${task.status} cannot prepare final payment approval`,
     );
@@ -229,7 +236,7 @@ export async function runFinalSettlementPreflight(
   }
 
   const recipient = (task.recipient ?? "").trim();
-  if (!recipient || !recipient.startsWith("0x")) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(recipient)) {
     blockers.push("Invalid task recipient address");
   }
 
@@ -273,11 +280,44 @@ export async function runFinalSettlementPreflight(
     );
   }
 
+  let nativeGasBalanceWei = BigInt(0);
+  let nativeGasRequiredWei = BigInt(0);
+  let sufficientGas = false;
+  try {
+    const transferCalldata = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [recipient as `0x${string}`, effectivePaymentAmount.units],
+    });
+    const [gasEstimate, gasPrice, nativeBalance] = await Promise.all([
+      client.estimateGas({
+        account: executionWalletAddress,
+        to: ARC_TESTNET_USDC_ADDRESS,
+        data: transferCalldata,
+      }),
+      client.getGasPrice(),
+      client.getBalance({ address: executionWalletAddress }),
+    ]);
+    nativeGasBalanceWei = nativeBalance;
+    nativeGasRequiredWei = gasEstimate * gasPrice;
+    sufficientGas = nativeBalance >= nativeGasRequiredWei;
+    if (!sufficientGas) {
+      blockers.push(
+        `Insufficient Arc native USDC for gas: available ${nativeBalance.toString()} wei, estimated ${nativeGasRequiredWei.toString()} wei for the transfer`,
+      );
+    }
+  } catch (err) {
+    blockers.push(
+      `Arc gas check failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
   const readyForApproval =
     blockers.length === 0 &&
     walletCheckPaid &&
     arcChainReadiness &&
-    sufficientBalance;
+    sufficientBalance &&
+    sufficientGas;
   const preflight: FinalSettlementPreflight = Object.freeze({
     executionWallet: executionWalletAddress,
     recipient,
@@ -286,6 +326,9 @@ export async function runFinalSettlementPreflight(
     arcChainReadiness,
     arcUsdcBalance,
     sufficientBalance,
+    nativeGasBalanceWei,
+    nativeGasRequiredWei,
+    sufficientGas,
     walletCheckCompleted: walletCheckPaid,
     serviceAmountSpent,
     serviceBudgetRemaining,
@@ -327,6 +370,9 @@ export function serializeFinalSettlementPreflight(
     arcChainReadiness: preflight.arcChainReadiness,
     arcUsdcBalance: serializeMoney(preflight.arcUsdcBalance),
     sufficientBalance: preflight.sufficientBalance,
+    nativeGasBalanceWei: preflight.nativeGasBalanceWei.toString(),
+    nativeGasRequiredWei: preflight.nativeGasRequiredWei.toString(),
+    sufficientGas: preflight.sufficientGas,
     walletCheckCompleted: preflight.walletCheckCompleted,
     serviceAmountSpent: serializeMoney(preflight.serviceAmountSpent),
     serviceBudgetRemaining: serializeMoney(preflight.serviceBudgetRemaining),
@@ -337,6 +383,12 @@ export function serializeFinalSettlementPreflight(
     readyForApproval: preflight.readyForApproval,
     blockers: Object.freeze([...preflight.blockers]),
   });
+}
+
+function parseWeiField(value: unknown, field: string): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  throw new Error(`Invalid preflight data: ${field} must be a wei string`);
 }
 
 export function hydrateFinalSettlementPreflight(
@@ -360,6 +412,9 @@ export function hydrateFinalSettlementPreflight(
     arcChainReadiness: Boolean(r.arcChainReadiness),
     arcUsdcBalance,
     sufficientBalance: Boolean(r.sufficientBalance),
+    nativeGasBalanceWei: parseWeiField(r.nativeGasBalanceWei, "preflight.nativeGasBalanceWei"),
+    nativeGasRequiredWei: parseWeiField(r.nativeGasRequiredWei, "preflight.nativeGasRequiredWei"),
+    sufficientGas: Boolean(r.sufficientGas),
     walletCheckCompleted: Boolean(r.walletCheckCompleted),
     serviceAmountSpent,
     serviceBudgetRemaining,
@@ -421,6 +476,13 @@ export function approveFinalSettlement(
     policy,
     Boolean(testMode ?? settlement.testMode),
   );
+  if (!isWalletCheckPaid(servicePurchases)) {
+    raiseDomainError(
+      "WALLET_CHECK_UNPAID",
+      "Cannot approve settlement: required wallet check purchase is not paid",
+    );
+  }
+  const serviceEvidence = buildApprovalServiceEvidence(servicePurchases);
   const approval = createApprovalRecord({
     id: `approval-${task.id}-${settlement.id}`,
     taskId: task.id,
@@ -436,10 +498,13 @@ export function approveFinalSettlement(
     recipient: settlement.recipient,
     network: settlement.network,
     policySnapshot: policy,
+    serviceEvidence,
     approvedAt: now,
   });
 
   assertApprovalForSettlement(approval, settlement);
+  assertApprovalServiceEvidence(servicePurchases, approval);
+
 
   const submittingSettlement = transitionSettlement(
     settlement,
@@ -563,11 +628,19 @@ export function recordFinalSettlementSubmission(
     Boolean(settlement.testMode ?? input.testMode),
   );
   assertApprovalForSettlement(approval, settlement);
+  assertApprovalServiceEvidence(input.servicePurchases, approval);
 
   if (!transactionHash || !transactionHash.startsWith("0x")) {
     throw new Error(
       "Valid 0x transaction hash is required for settlement submission",
     );
+  }
+
+  if (
+    settlement.transactionHash &&
+    settlement.transactionHash.toLowerCase() === transactionHash.toLowerCase()
+  ) {
+    return { settlement, task };
   }
 
   const submitted = transitionSettlement(settlement, "submitted", {
@@ -606,6 +679,7 @@ export async function reconcileFinalSettlementOnchain(
     );
   }
   assertApprovalForSettlement(approval, settlement);
+  assertApprovalServiceEvidence(servicePurchases, approval);
 
   if (!settlement.transactionHash) {
     throw new Error("Cannot reconcile settlement without transactionHash");

@@ -761,6 +761,7 @@ test.describe("P6B.3 Test Mode Reconciliation & Ambiguous Arc Submission Recover
     const { settlement: submittedSettlement } = recordFinalSettlementSubmission({
       task: settlingTask,
       policy,
+      servicePurchases: [purchase],
       settlement: submittingSettlement,
       approval,
       transactionHash: LIVE_RECORDED_HASH,
@@ -1387,6 +1388,7 @@ test.describe("P6B.3 Test Mode Reconciliation & Ambiguous Arc Submission Recover
     const { settlement: submittedSettlement } = recordFinalSettlementSubmission({
       task: settlingTask,
       policy,
+      servicePurchases: [purchase],
       settlement: approvedSettlement,
       approval,
       transactionHash: LIVE_RECORDED_HASH,

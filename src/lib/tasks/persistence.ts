@@ -17,6 +17,7 @@ import {
   SERVICE_PURCHASE_STATUSES,
   SETTLEMENT_STATUSES,
   type ApprovalRecord,
+  type ApprovalServiceEvidence,
   type ArcReconciliationState,
   type FinancialTask,
   type FinancialTaskStatus,
@@ -172,6 +173,10 @@ export type PersistedApproval = Readonly<{
   policySnapshot: PersistedPolicy;
   decision: "approved";
   approvedAt: string;
+  serviceEvidence?: Readonly<{
+    paidPurchaseIds: readonly string[];
+    paidTotal: SerializedMoney;
+  }>;
 }>;
 
 export type PersistedSettlement = Readonly<{
@@ -332,6 +337,7 @@ type RawApproval = {
   policySnapshot?: unknown;
   decision?: unknown;
   approvedAt?: unknown;
+  serviceEvidence?: unknown;
 };
 
 type RawSettlement = {
@@ -1097,6 +1103,9 @@ export function hydrateApproval(
   const testMode =
     typeof candidate.testMode === "boolean" ? candidate.testMode : undefined;
   const policySnapshot = policy ?? hydratePolicy(candidate.policySnapshot);
+  const serviceEvidence = hydrateApprovalServiceEvidence(
+    candidate.serviceEvidence,
+  );
   return createApprovalRecord({
     id: requiredString(candidate.id, "approval id"),
     taskId: requiredString(candidate.taskId, "approval taskId"),
@@ -1117,7 +1126,35 @@ export function hydrateApproval(
     recipient: requiredString(candidate.recipient, "approval recipient"),
     network: requiredString(candidate.network, "approval network"),
     policySnapshot,
+    ...(serviceEvidence ? { serviceEvidence } : {}),
     approvedAt: requiredString(candidate.approvedAt, "approval approvedAt"),
+  });
+}
+
+function hydrateApprovalServiceEvidence(
+  value: unknown,
+): ApprovalServiceEvidence | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("persisted approval service evidence is invalid");
+  }
+  const candidate = value as {
+    paidPurchaseIds?: unknown;
+    paidTotal?: unknown;
+  };
+  if (!Array.isArray(candidate.paidPurchaseIds)) {
+    throw new Error("persisted approval service evidence is invalid");
+  }
+  const paidPurchaseIds = candidate.paidPurchaseIds.map((entry) =>
+    requiredString(entry, "approval service evidence purchase id"),
+  );
+  const paidTotal = hydrateMoney(
+    candidate.paidTotal,
+    "approval service evidence paidTotal",
+  );
+  return Object.freeze({
+    paidPurchaseIds: Object.freeze(paidPurchaseIds),
+    paidTotal,
   });
 }
 
@@ -1476,6 +1513,14 @@ export function serializeApproval(approval: ApprovalRecord): PersistedApproval {
     policySnapshot: serializePolicy(approval.policySnapshot),
     decision: "approved",
     approvedAt: approval.approvedAt,
+    ...(approval.serviceEvidence
+      ? {
+          serviceEvidence: {
+            paidPurchaseIds: [...approval.serviceEvidence.paidPurchaseIds],
+            paidTotal: serializeMoney(approval.serviceEvidence.paidTotal),
+          },
+        }
+      : {}),
   };
 }
 

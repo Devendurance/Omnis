@@ -217,6 +217,11 @@ export type SettlementExecution = Readonly<{
 }>;
 
 
+export type ApprovalServiceEvidence = Readonly<{
+  paidPurchaseIds: readonly string[];
+  paidTotal: Money;
+}>;
+
 export type ApprovalRecord = Readonly<{
   id: string;
   taskId: string;
@@ -233,6 +238,7 @@ export type ApprovalRecord = Readonly<{
   policySnapshot: TaskPolicy;
   decision: "approved";
   approvedAt: string;
+  serviceEvidence?: ApprovalServiceEvidence;
 }>;
 
 export type OmnisProof = Readonly<{

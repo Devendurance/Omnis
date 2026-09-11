@@ -80,11 +80,14 @@ function makePolicy(taskId: string): TaskPolicy {
 }
 
 function makeMockPublicClient(
-  opts: { balance?: bigint; chainId?: number } = {},
+  opts: { balance?: bigint; chainId?: number; nativeBalance?: bigint } = {},
 ): PublicClient {
   return {
     getChainId: async () => opts.chainId ?? 5042002,
     readContract: async () => opts.balance ?? BigInt(10_000_000), // 10 USDC
+    estimateGas: async () => BigInt(60_000),
+    getGasPrice: async () => BigInt(1_000_000_000),
+    getBalance: async () => opts.nativeBalance ?? BigInt(10_000_000_000_000_000),
   } as unknown as PublicClient;
 }
 

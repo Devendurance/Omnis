@@ -263,6 +263,7 @@ export async function POST(request: Request): Promise<Response> {
         recordFinalSettlementSubmission({
           task,
           policy,
+          servicePurchases,
           settlement,
           approval,
           transactionHash: rawTxHash,
