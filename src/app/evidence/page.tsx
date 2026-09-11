@@ -132,14 +132,15 @@ export default function EvidencePage() {
 
       <div className="demo-box" style={{ marginTop: "1.5rem" }}>
         <p className="demo-box-label">judge access</p>
-        <p className="demo-box-val">live demo spending is restricted</p>
+        <p className="demo-box-val">open hackathon demo for authenticated visitors</p>
         <p className="demo-box-sub">
           Anyone can explore this evidence and the landing page. Authenticated
-          judges can log in with Privy, view services, and trigger the unpaid
-          x402 402 challenge. Server-funded $0.003 purchases require an
-          allowlisted judge identity plus an explicit start action; other
-          identities receive an explicit not-allowed response and no money
-          moves. The demo video shows the full write path.
+          visitors can log in with Privy, view services, and trigger the unpaid
+          x402 402 challenge. When live purchases are enabled, the bounded
+          $0.003 wallet-activity check requires an authenticated identity plus
+          an explicit start action; rejected requests receive an explicit
+          not-allowed response and no money moves. The demo video shows the
+          full write path.
         </p>
       </div>
 

@@ -10,7 +10,6 @@ import {
 } from "@/lib/services/hedera-x402/config";
 import {
   checkAndRecordDemoPurchase,
-  isDemoPurchasesEnabled,
 } from "@/lib/services/server/demo-guard";
 import {
   getP4ALiveServiceRegistry,
@@ -288,12 +287,6 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   if (process.env.NODE_ENV === "production") {
-    if (!isDemoPurchasesEnabled()) {
-      return Response.json(
-        { ok: false, error: "live service purchases are disabled in production" },
-        { status: 503 },
-      );
-    }
     const demoCheck = checkAndRecordDemoPurchase(serverSubject);
     if (!demoCheck.ok) {
       return Response.json(

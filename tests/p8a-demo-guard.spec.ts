@@ -20,6 +20,7 @@ function demoEnv(extra: Record<string, string> = {}) {
   return {
     NODE_ENV: "production",
     OMNIS_DEMO_PURCHASES_ENABLED: "true",
+    OMNIS_DEMO_ACCESS_MODE: "allowlist",
     OMNIS_DEMO_ALLOWLIST: JUDGE,
     OMNIS_PUBLIC_ORIGIN: "https://demo.example.com",
     ...extra,

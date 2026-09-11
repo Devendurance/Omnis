@@ -7,9 +7,20 @@ import {
   type P4AEnvironment,
 } from "../hedera-x402/config";
 export const DEMO_PURCHASES_ENV = "OMNIS_DEMO_PURCHASES_ENABLED" as const;
+export const DEMO_ACCESS_MODE_ENV = "OMNIS_DEMO_ACCESS_MODE" as const;
 export const DEMO_ALLOWLIST_ENV = "OMNIS_DEMO_ALLOWLIST" as const;
 export const DEMO_MAX_PER_SUBJECT_ENV =
   "OMNIS_DEMO_MAX_PURCHASES_PER_SUBJECT" as const;
+
+export type DemoAccessMode = "public" | "allowlist";
+
+export function readDemoAccessMode(
+  env: P4AEnvironment = process.env,
+): DemoAccessMode | undefined {
+  const raw = env[DEMO_ACCESS_MODE_ENV]?.trim();
+  if (raw === "public" || raw === "allowlist") return raw;
+  return undefined;
+}
 
 export const DEMO_DEFAULT_MAX_PER_SUBJECT = 3 as const;
 export const DEMO_WINDOW_MS: number = 60 * 60 * 1000;
@@ -19,21 +30,23 @@ type DemoCounter = {
   windowStart: number;
   windowCount: number;
 };
-
 // Process-local defense-in-depth counter only. It is NOT the authoritative
 // drain protection: serverless restarts or extra instances reset it. The
-// durable controls are the authenticated allowlist below, the deterministic
-// P2 per-task policy caps in executeServicePurchase, the exact-price payer
-// validation, and a demo payer account funded with only a few cents of
-// testnet USDC. Documented as non-authoritative by design.
+// authoritative safety boundary is the fixed wallet-activity service, the
+// fixed 3000-unit testnet HTS USDC amount, the narrow payer endpoint
+// allowlist, and a demo payer account funded with only a few cents of
+// testnet USDC. The per-subject counter and the P2 per-task policy caps in
+// executeServicePurchase are additional best-effort layers. Documented as
+// non-authoritative by design.
 const counters = new Map<string, DemoCounter>();
 export function isP4ADemoGateOpen(
   env: P4AEnvironment = process.env,
 ): boolean {
-  return (
-    env[DEMO_PURCHASES_ENV]?.trim() === "true" &&
-    readDemoAllowlist(env).length > 0
-  );
+  if (env[DEMO_PURCHASES_ENV]?.trim() !== "true") return false;
+  const mode = readDemoAccessMode(env);
+  if (mode === "public") return true;
+  if (mode === "allowlist") return readDemoAllowlist(env).length > 0;
+  return false;
 }
 
 export function isPublicOriginValid(
@@ -85,6 +98,19 @@ export function isDemoSubjectAllowlisted(
   return readDemoAllowlist(env).some((entry) => entry === clean);
 }
 
+export function isDemoSubjectAuthorized(
+  subject: string,
+  env: P4AEnvironment = process.env,
+): boolean {
+  if (env[DEMO_PURCHASES_ENV]?.trim() !== "true") return false;
+  const clean = subject.trim();
+  if (!clean) return false;
+  const mode = readDemoAccessMode(env);
+  if (mode === "public") return true;
+  if (mode === "allowlist") return isDemoSubjectAllowlisted(clean, env);
+  return false;
+}
+
 export function readDemoMaxPerSubject(
   env: P4AEnvironment = process.env,
 ): number {
@@ -102,7 +128,15 @@ export function checkAndRecordDemoPurchase(
   env: P4AEnvironment = process.env,
   now = Date.now(),
 ): { ok: true } | { ok: false; error: string; status: number } {
-  if (!isDemoSubjectAllowlisted(subject, env)) {
+  const mode = readDemoAccessMode(env);
+  if (env[DEMO_PURCHASES_ENV]?.trim() !== "true" || mode === undefined) {
+    return {
+      ok: false,
+      error: "live service purchases are disabled in production",
+      status: 503,
+    };
+  }
+  if (!isDemoSubjectAuthorized(subject, env)) {
     return {
       ok: false,
       error: "demo purchases are restricted to allowlisted judges",
@@ -122,11 +156,18 @@ export function checkAndRecordDemoPurchase(
     counter.windowCount = 0;
   }
   if (counter.total >= max || counter.windowCount >= max) {
-    return {
-      ok: false,
-      error: "demo purchase allowance exhausted for this judge",
-      status: 429,
-    };
+    return mode === "public"
+      ? {
+          ok: false,
+          error:
+            "Live demo allowance used. You can still inspect the verified demo evidence.",
+          status: 429,
+        }
+      : {
+          ok: false,
+          error: "demo purchase allowance exhausted for this judge",
+          status: 429,
+        };
   }
   counter.total += 1;
   counter.windowCount += 1;

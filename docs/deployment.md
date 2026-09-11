@@ -34,13 +34,22 @@ is required by the architecture.
   read time. In production the payer resolves the service endpoint from this
   origin, so no localhost assumption remains in production paths.
 - `OMNIS_DEMO_PURCHASES_ENABLED`: set to `true` to allow live service
-  purchases in production for allowlisted judges. Absent or any other value
-  keeps purchases disabled (503, no spend).
+  purchases in production. Absent or any other value keeps purchases
+  disabled (503, no spend).
+- `OMNIS_DEMO_ACCESS_MODE`: `public` opens the demo to authenticated
+  hackathon visitors; `allowlist` restricts purchases to
+  `OMNIS_DEMO_ALLOWLIST` for post-hackathon operation. Missing or any other
+  value keeps purchases disabled (503, no spend). Never defaults to public.
 - `OMNIS_DEMO_ALLOWLIST`: comma-separated Privy subject DIDs permitted to
-  trigger demo purchases. Exact match only. Non-allowlisted subjects are
-  rejected before any spend.
-- `OMNIS_DEMO_MAX_PURCHASES_PER_SUBJECT`: per-judge purchase cap, default 3,
-  hard max 10. About $0.009 total at the default.
+  trigger demo purchases in allowlist mode. Exact match only.
+  Non-allowlisted subjects are rejected before any spend. Not required in
+  public mode.
+- `OMNIS_DEMO_MAX_PURCHASES_PER_SUBJECT`: best-effort per-visitor purchase
+  cap, default 3, hard max 10. About $0.009 total at the default. The counter
+  is process-local and resets on serverless restarts, so it is not
+  authoritative. The authoritative boundary is the fixed wallet-activity
+  service, the fixed 3000-unit testnet HTS USDC amount, the narrow payer
+  endpoint allowlist, and the small payer funding.
 - `ENABLE_P6B_TEST_MODE`: authorizes P6B test mode on a hosted deployment.
   Without it, test-mode requests get 403.
 - `OMNIS_P4A_SPIKE_TOKEN`: caller secret for the dev-only x402 entrypoint.
@@ -53,18 +62,21 @@ is required by the architecture.
 - `OMNIS_ALLOW_MOCK_AUTH`: test and local development only. Mock tokens are
   rejected in production unless this is explicitly `true`. Never set it to
   `true` on the public deployment.
-
 ## Vercel setup
 
 1. Import the public GitHub repository (`https://github.com/Devendurance/Omnis`).
 2. Framework preset: Next.js. Build command `npm run build`, output default.
 3. Add the PUBLIC variables plus every SERVER-ONLY variable above in the
-   Vercel project environment (Production environment at minimum).
+   Vercel project environment (Production environment at minimum). For the
+   hackathon demo set `OMNIS_DEMO_PURCHASES_ENABLED=true` and
+   `OMNIS_DEMO_ACCESS_MODE=public`; for post-hackathon operation switch to
+   `OMNIS_DEMO_ACCESS_MODE=allowlist` with `OMNIS_DEMO_ALLOWLIST` set.
 4. Set `OMNIS_PUBLIC_ORIGIN` to the exact deployment origin after the first
    deploy, then redeploy so the x402 endpoint allowlist matches.
 5. Fund the Hedera demo payer with only a few cents of testnet USDC. The
-   durable spend controls are the allowlist, the P2 per-task caps, exact
-   price validation, and this small balance.
+   authoritative spend controls are the fixed service, the fixed amount, the
+   narrow endpoint allowlist, and this small balance; the per-visitor counter
+   and P2 per-task caps are additional best-effort layers.
 6. Do not set `OMNIS_ALLOW_MOCK_AUTH=true` in production.
 
 ## Privy production configuration
@@ -87,14 +99,17 @@ is required by the architecture.
 ## Demo guard configuration
 
 - Production purchases require all of: authenticated Privy session,
-  `OMNIS_DEMO_PURCHASES_ENABLED=true`, subject present in
-  `OMNIS_DEMO_ALLOWLIST`, and remaining per-subject allowance.
-- Unknown judges (DID not allowlisted) receive an explicit not-allowed
-  response and no money moves. They can still explore the landing page,
-  the public `/evidence` surface, login with Privy, view services, and
-  trigger the unpaid x402 402 challenge.
-- Messaging on `/evidence` states "live demo spending is restricted" and
-  points at the demo video for the full write path.
+  `OMNIS_DEMO_PURCHASES_ENABLED=true`, a valid `OMNIS_DEMO_ACCESS_MODE`,
+  valid Hedera config, a valid `OMNIS_PUBLIC_ORIGIN`, and remaining
+  per-visitor allowance.
+- In `public` mode any authenticated visitor may run the bounded $0.003
+  wallet-activity check; no allowlist is required. In `allowlist` mode the
+  subject must be present in `OMNIS_DEMO_ALLOWLIST` (exact match).
+- Rejected subjects receive an explicit not-allowed response and no money
+  moves. Everyone can still explore the landing page, the public `/evidence`
+  surface, login with Privy, view services, and trigger the unpaid x402 402
+  challenge. When the best-effort demo allowance is used, the UI points at
+  the verified demo evidence.
 
 ## P6B test mode
 

@@ -20,7 +20,7 @@ test.describe("P8B public evidence surface", () => {
       page.getByText(/read-only historical record, not a new live execution/i),
     ).toBeVisible();
     await expect(
-      page.getByText(/live demo spending is restricted/i),
+      page.getByText(/open hackathon demo for authenticated visitors/i),
     ).toBeVisible();
   });
 
