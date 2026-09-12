@@ -372,7 +372,7 @@ export function ServiceDiscoveryCard({
               : "not selected",
           },
           {
-            label: purchase ? "remaining after purchase" : "remaining before purchase",
+            label: purchase ? "remaining" : "remaining before purchase",
             value: purchase
               ? budgetLabel(budgetState.remainingAvailable)
               : budgetLabel(

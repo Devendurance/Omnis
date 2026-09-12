@@ -20,7 +20,7 @@ test("flagship plan exposes its bounded service budget", async ({ page }) => {
   await expect(page.getByText("$0.05", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("$0", { exact: true }).first()).toBeVisible();
   await expect(
-    page.getByText("remaining before purchase", { exact: true }),
+    page.getByText("remaining", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("Catalog-only. No service was purchased.", { exact: true }),

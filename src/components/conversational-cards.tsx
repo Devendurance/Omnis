@@ -234,7 +234,7 @@ export function InlineTaskBudgetCard({
           <span className="conversational-stat-num">{spentStr}</span>
         </div>
         <div>
-          <span className="muted">remaining before purchase</span>:{" "}
+          <span className="muted">remaining</span>:{" "}
           <span className="conversational-stat-num">{remainingStr}</span>
         </div>
       </div>

@@ -294,7 +294,7 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
     ).toBeVisible();
   });
 
-  test("4. service card shows $0.003 and $0.047 remaining before purchase", async ({
+  test("4. service card shows $0.003 with a $0.047 budget-after-purchase preview", async ({
     page,
   }) => {
     const liveRegistry = createLiveServiceRegistry("available");
@@ -325,6 +325,9 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
     await expect(discoveryCard).toBeVisible();
     await expect(discoveryCard.getByText("$0.003").first()).toBeVisible();
     await expect(discoveryCard.getByText("$0.047").first()).toBeVisible();
+    await expect(
+      discoveryCard.getByText("BUDGET AFTER PURCHASE", { exact: true }),
+    ).toBeVisible();
   });
 
   test("5. no payment action appears before required wallet check is executed", async ({
@@ -418,6 +421,70 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
     await expect(
       page.getByText("$0.047 service budget remaining"),
     ).toBeVisible();
+  });
+
+  test("6b. paid service state shows remaining $0.047 with no before-purchase wording", async ({
+    page,
+  }) => {
+    const taskId = "p7-paid-budget-copy";
+    const policy = makePolicy(taskId);
+    const draft = makeTask(taskId, policy);
+    const planned = transitionTask(draft, "planned", { now: NOW });
+    const running = beginTaskExecution(planned, policy, NOW);
+    const registry = createLiveServiceRegistry("available");
+    const purchase = makePaidPurchase(taskId, policy);
+    const task = moveTaskToAwaitingApproval(running, policy, [purchase], NOW);
+
+    const sessionData = serializeDraftSession(
+      {
+        version: 5,
+        ownerSubject: USER_ALICE_DID,
+        ownerWalletAddress: USER_ALICE_WALLET,
+        messages: [],
+        task,
+        policy,
+        servicePurchases: [purchase],
+        discovery: {
+          requiredCapability: "wallet-activity",
+          selectedServiceId: WALLET_ACTIVITY_SERVICE_ID,
+          discoveredAt: NOW,
+          registryVersion: registry.version,
+        },
+      },
+      registry,
+    );
+
+    await page.goto("/app");
+    await page.evaluate(
+      ({ authKey, authVal, sessionKey, sessionVal }) => {
+        localStorage.setItem(authKey, JSON.stringify(authVal));
+        localStorage.setItem(sessionKey, sessionVal);
+      },
+      {
+        authKey: MOCK_AUTH_STORAGE_KEY,
+        authVal: {
+          authenticated: true,
+          subject: USER_ALICE_DID,
+          walletAddress: USER_ALICE_WALLET,
+        },
+        sessionKey: getTaskSessionStorageKey(USER_ALICE_DID),
+        sessionVal: sessionData,
+      },
+    );
+    await page.reload();
+
+    const budgetCard = page.locator(".bounded-budget-card");
+    await expect(budgetCard).toBeVisible();
+    await expect(budgetCard.getByText("budget:").first()).toBeVisible();
+    await expect(budgetCard.getByText("$0.05").first()).toBeVisible();
+    await expect(budgetCard.getByText("spent:").first()).toBeVisible();
+    await expect(budgetCard.getByText("$0.003").first()).toBeVisible();
+    await expect(budgetCard.getByText("remaining", { exact: true })).toBeVisible();
+    await expect(budgetCard.getByText("$0.047").first()).toBeVisible();
+    await expect(
+      budgetCard.getByText("Observed 1 service interaction(s)."),
+    ).toBeVisible();
+    await expect(page.getByText("remaining before purchase")).toHaveCount(0);
   });
 
   test("7. approval appears inline only after paid wallet check", async ({
