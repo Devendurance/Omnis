@@ -58,3 +58,13 @@ test-results/
 # local environment
 .env
 .env.local
+
+emdash.log
+full-suite-final.log
+full-test.log
+build.log
+lint.log
+# Local verification artifacts
+emdash.log
+full-suite-final.log
+full-test.log
