@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { formatMoney, type OmnisProof } from "@/lib/domain";
 import { loadDraftSession } from "@/lib/tasks/persistence";
+import { loadTaskArchive } from "@/lib/tasks/archive";
 import { serviceRegistry } from "@/lib/services/registry";
 import { ARC_TESTNET_EXPLORER_URL } from "@/lib/settlement";
 
@@ -41,13 +42,27 @@ export default function ProofRecordPage({
     const session = loadDraftSession(window.localStorage, serviceRegistry, {
       expectedOwnerSubject: auth.ownerSubject,
     });
-    if (
-      session?.proof &&
-      (session.proof.id === id ||
-        session.proof.taskId === id ||
-        session.task?.id === id)
-    ) {
-      proof = session.proof;
+    const matches = (candidate: typeof session) =>
+      candidate?.proof &&
+      (candidate.proof.id === id ||
+        candidate.proof.taskId === id ||
+        candidate.task?.id === id);
+    if (matches(session)) {
+      proof = session?.proof ?? null;
+    } else {
+      // Completed proof stays reachable after starting a new task: the
+      // archive holds the same immutable snapshots, never a second source.
+      const archived = loadTaskArchive(
+        window.localStorage,
+        auth.ownerSubject,
+        serviceRegistry,
+      );
+      for (const candidate of archived) {
+        if (matches(candidate)) {
+          proof = candidate.proof ?? null;
+          break;
+        }
+      }
     }
   }
 

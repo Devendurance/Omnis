@@ -8,7 +8,9 @@ import type {
   SettlementExecution,
   TaskPolicy,
 } from "../domain";
+import type { StoredServiceRecommendation } from "../recommendation/verifier";
 import type { TaskPlanView } from "./presentation";
+
 export const TASK_SESSION_VERSION = 5 as const;
 export const LEGACY_TASK_SESSION_VERSION = 4 as const;
 export const EARLIER_TASK_SESSION_VERSION = 3 as const;
@@ -56,7 +58,17 @@ export type TaskSession = Readonly<{
   servicePurchases?: readonly ServicePurchase[];
   budget?: TaskBudgetSnapshot;
   discovery?: TaskDiscoveryState;
+  recommendation?: StoredServiceRecommendation;
   approval?: ApprovalRecord;
   settlement?: SettlementExecution;
   proof?: OmnisProof;
 }>;
+
+export function retainMessagesForTask(
+  messages: readonly ChatMessage[],
+  taskId: string,
+): readonly ChatMessage[] {
+  return Object.freeze(
+    messages.filter((message) => !message.plan || message.plan.taskId === taskId),
+  );
+}

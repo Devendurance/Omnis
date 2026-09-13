@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { isFinancialWrite, trackTestRequests } from "./helpers/conversation-test";
 
 const routes = [
   "/",
@@ -379,22 +380,43 @@ test("composer captures a draft and asks for missing recipient without executing
   await expect(input).toBeFocused();
   const text = await input.inputValue();
   expect(text).toContain("Spend no more than $0.05 checking.");
-  const mutations: string[] = [];
-  page.on("request", (request) => {
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method())) {
-      mutations.push(request.url());
-    }
-  });
+  const log = await trackTestRequests(page);
   await submit.click();
   await expect(
     page.getByText("Who should receive 50 USDC?", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("task draft", { exact: true })).toBeVisible();
   await expect(page.locator(".task-plan-card")).toBeVisible();
   await expect(input).toHaveValue("");
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  expect(mutations).toEqual([]);
+  // POST /api/conversation performs interpretation only, so it is not a
+  // financial write. Financial writes (service purchase, approval,
+  // settlement, or any transaction) must remain zero for a draft.
+  const financialWrites = log.mutations.filter((entry) =>
+    isFinancialWrite(entry.split(" ").slice(1).join(" ")),
+  );
+  expect(financialWrites).toEqual([]);
   await expect(page).toHaveURL(/\/app$/);
+});
+
+test("conversation interpretation can occur while financial writes stay zero", async ({
+  page,
+}) => {
+  await page.goto("/app");
+  await page.evaluate(() => localStorage.clear());
+  const input = page.getByRole("textbox", { name: "Your financial task" });
+  const submit = page.getByRole("button", { name: "Submit task" });
+  const log = await trackTestRequests(page);
+  await input.fill(
+    "Pay this contractor 50 USDC, but check the wallet first. Spend no more than $0.05 checking.",
+  );
+  await submit.click();
+  await expect(
+    page.getByText("Who should receive 50 USDC?", { exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+  expect(log.conversation.length).toBeGreaterThan(0);
+  expect(log.financialWrites).toEqual([]);
+  expect(log.forbiddenLlm).toEqual([]);
 });
 
 test("wallet controls consistently explain the preview and return focus", async ({

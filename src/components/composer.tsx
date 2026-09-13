@@ -3,12 +3,13 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import type { EIP1193Provider } from "viem";
-import { hydrateMoney, moneyZero } from "@/lib/domain/money";
+import { hydrateMoney, moneyZero, serializeMoney } from "@/lib/domain/money";
 import {
   ARC_TESTNET_CHAIN_ID,
   executeCircleSettlement,
@@ -19,6 +20,7 @@ import Image from "next/image";
 import {
   ArrowUp,
   ArrowUpRight,
+  Plus,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
@@ -28,7 +30,13 @@ import {
   type ServicePurchase,
   type TaskPolicy,
 } from "@/lib/domain";
-import { parseFinancialIntent, type ConversationContext } from "@/lib/intent";
+import {
+  buildAuthoritativeParseResult,
+  parseFinancialIntent,
+  pendingFieldForIntent,
+  type ConversationContext,
+} from "@/lib/intent";
+import { readPromotedIntent } from "@/lib/conversation/promoted";
 import {
   hydrateServiceRegistry,
   resolveRequiredCapability,
@@ -39,13 +47,17 @@ import {
 import { useAuth, type UserAuthIdentity } from "@/lib/auth";
 import {
   LOCAL_DRAFT_OWNER_ID,
+  archiveTaskSession,
   getTaskBudgetState,
+  isServiceExecutionOffered,
   hydrateDraftSession,
   loadDraftSession,
   orchestrateFinancialIntent,
   saveDraftSession,
-  selectTaskPlanView,
   serializeDraftSession,
+  selectTaskPlanView,
+  retainMessagesForTask,
+  canStartNewTask,
   serializeSettlement,
   TASK_SESSION_VERSION,
   type ChatMessage,
@@ -64,6 +76,26 @@ import {
   InlinePaymentCompletedCard,
 } from "./conversational-cards";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { buildInterpretRequestBody } from "@/lib/conversation/request";
+import type { StoredServiceRecommendation } from "@/lib/recommendation/verifier";
+import {
+  buildRecommendationCandidateSet,
+  decideRecommendationRefresh,
+  isRecommendationStale,
+} from "@/lib/recommendation";
+import {
+  containsAuthorityBypassClaim,
+  SECURITY_REFUSAL_MESSAGE,
+} from "@/lib/conversation/authority";
+import { isSynthesisWriteStale } from "@/lib/conversation/synthesize";
+import { isRecordObject } from "@/lib/conversation/guard";
+import {
+  ConversationalThinkingBubble,
+  useConversationalMotion,
+} from "./conversational-motion";
+
+const CONVERSATION_ENABLED =
+  process.env.NEXT_PUBLIC_OMNIS_CONVERSATION_ENABLED === "true";
 
 const examples = [
   { mode: "omnis pay", title: "Pay a contractor", prompt: "Pay a contractor." },
@@ -99,6 +131,7 @@ function contextFromTask(
       type: task.type,
       recipient: task.recipient,
       paymentAmount: task.paymentAmount,
+      ...(task.paymentAmount ? { paymentAsset: task.paymentAmount.asset } : {}),
       purpose: task.purpose,
       serviceBudget: task.serviceBudget,
       perServiceCap: task.perServiceCap,
@@ -203,6 +236,7 @@ function FinalPaymentGate({
   hydrationInput,
   isSessionContextCurrent,
   getSessionContextRunToken,
+  onBusyChange,
 }: {
   task: FinancialTask;
   policy: TaskPolicy;
@@ -214,6 +248,7 @@ function FinalPaymentGate({
   hydrationInput: string;
   isSessionContextCurrent: SessionContextGuard;
   getSessionContextRunToken: SessionContextTokenGetter;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const activeWallet =
     auth.primaryExecutionWallet?.address ?? task.ownerWalletAddress;
@@ -261,6 +296,11 @@ function FinalPaymentGate({
   const [txHash, setTxHash] = useState<string | null>(
     () => session.settlement?.transactionHash ?? null,
   );
+
+  useEffect(() => {
+    onBusyChange(isSubmitting || isReconciling || isRecovering);
+    return () => onBusyChange(false);
+  }, [isRecovering, isReconciling, isSubmitting, onBusyChange]);
   useEffect(() => {
     let active = true;
     const operationRunToken = getSessionContextRunToken();
@@ -797,20 +837,36 @@ function FinalPaymentGate({
     />
   );
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 export function Composer() {
   const auth = useAuth();
   const currentOwnerSubject = auth.authenticated
     ? auth.ownerSubject
     : undefined;
+  const [newTaskError, setNewTaskError] = useState<string>();
   const [value, setValue] = useState("");
   const [session, setSession] = useState<TaskSession>(initialSession);
   const [registry, setRegistry] = useState<ServiceRegistry>(serviceRegistry);
   const [executionPending, setExecutionPending] = useState(false);
+  const [financialExecutionPending, setFinancialExecutionPending] =
+    useState(false);
+  const [interpretPending, setInterpretPending] = useState(false);
   const [executionError, setExecutionError] = useState<string>();
+  const [taskActionsOpen, setTaskActionsOpen] = useState(false);
+  const [recommendationPending, setRecommendationPending] = useState(false);
+  const recommendationKeyRef = useRef<string | null>(null);
+  const conversationalMotion = useConversationalMotion();
+  // Stable aliases: the motion controller identity changes when entries
+  // publish, so the recommendation effect depends on these callbacks only.
+  const beginRecommendationMotion = conversationalMotion.begin;
+  const resolveRecommendationMotion = conversationalMotion.resolve;
+  const deferredMotionIdsRef = useRef(new Set<string>());
+  const interpretAbortRef = useRef<AbortController | null>(null);
+  const operationGenerationRef = useRef(0);
+  const taskActionsRef = useRef<HTMLDivElement>(null);
+  const taskActionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const taskActionsMenuRef = useRef<HTMLDivElement>(null);
+  const taskActionsItemRef = useRef<HTMLButtonElement>(null);
+  const taskActionsMenuId = useId();
   const [hydrationState, setHydrationState] =
     useState<HydrationLifecycle>("uninitialized");
   const [hydratedInput, setHydratedInput] = useState<string>();
@@ -830,9 +886,20 @@ export function Composer() {
       ? Boolean(currentOwnerSubject)
       : anonymousPersistenceAllowed);
   const sessionForRender = persistenceEnabled ? session : initialSession();
+  const isTaskCorrectable =
+    CONVERSATION_ENABLED &&
+    sessionForRender.task !== undefined &&
+    (sessionForRender.task.status === "planned" ||
+      sessionForRender.task.status === "awaiting_approval") &&
+    sessionForRender.approval === undefined &&
+    sessionForRender.settlement === undefined &&
+    (sessionForRender.servicePurchases ?? []).every(
+      (purchase) => purchase.status === "failed",
+    );
   const isCaptureLocked =
     sessionForRender.task !== undefined &&
-    sessionForRender.task.status !== "draft";
+    sessionForRender.task.status !== "draft" &&
+    !isTaskCorrectable;
   const isTaskActive =
     sessionForRender.task !== undefined ||
     (sessionForRender.servicePurchases &&
@@ -890,18 +957,150 @@ export function Composer() {
   );
   const field = useRef<HTMLTextAreaElement>(null);
 
-  const startNewTask = () => {
+  const finishLiveMotion = useCallback(() => {
+    for (const id of conversationalMotion.pendingIds) {
+      const entry = conversationalMotion.get(id);
+      if (entry?.text !== undefined) continue;
+      const message = session.messages.find((candidate) => candidate.id === id);
+      if (message?.role === "omnis") {
+        conversationalMotion.resolve(id, message.content);
+      }
+    }
+    conversationalMotion.finishAll();
+    deferredMotionIdsRef.current.clear();
+  }, [conversationalMotion, session.messages]);
+
+  useEffect(() => {
+    for (const id of conversationalMotion.pendingIds) {
+      if (deferredMotionIdsRef.current.has(id)) continue;
+      const entry = conversationalMotion.get(id);
+      if (entry?.text !== undefined) continue;
+      const message = session.messages.find((candidate) => candidate.id === id);
+      if (message?.role === "omnis") {
+        conversationalMotion.resolve(id, message.content);
+      }
+    }
+  }, [conversationalMotion, session.messages]);
+
+  const closeTaskActions = useCallback((restoreFocus = true) => {
+    setTaskActionsOpen(false);
+    if (restoreFocus) {
+      window.setTimeout(() => taskActionsTriggerRef.current?.focus(), 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!taskActionsOpen) return;
+    const frame = window.requestAnimationFrame(() => taskActionsItemRef.current?.focus());
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!taskActionsRef.current?.contains(event.target as Node)) {
+        closeTaskActions(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTaskActions(true);
+        return;
+      }
+      if (
+        event.target === taskActionsItemRef.current &&
+        ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+      ) {
+        event.preventDefault();
+        taskActionsItemRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeTaskActions, taskActionsOpen]);
+  const startNewTask = useCallback(() => {
     if (!persistenceEnabled) return;
-    setSession(
-      initialOwnerSession(
-        currentOwnerSubject,
-        auth.primaryExecutionWallet?.address,
-      ),
+    const eligibility = canStartNewTask(
+      sessionForRender,
+      executionPending || financialExecutionPending,
     );
+    closeTaskActions(false);
+    if (!eligibility.allowed) {
+      setNewTaskError(eligibility.reason);
+      window.setTimeout(() => taskActionsTriggerRef.current?.focus(), 0);
+      return;
+    }
+    operationGenerationRef.current += 1;
+    interpretAbortRef.current?.abort();
+    interpretAbortRef.current = null;
+    finishLiveMotion();
+    const fresh = initialOwnerSession(
+      currentOwnerSubject,
+      auth.primaryExecutionWallet?.address,
+    );
+    const hadHistory =
+      sessionForRender.task !== undefined ||
+      sessionForRender.messages.length > 0 ||
+      (sessionForRender.servicePurchases ?? []).length > 0 ||
+      sessionForRender.approval !== undefined ||
+      sessionForRender.settlement !== undefined ||
+      sessionForRender.proof !== undefined ||
+      sessionForRender.pendingIntent !== undefined;
+    let preserved = false;
+    try {
+      // Archive first and confirm before touching the active key: a failed
+      // archive must never be followed by overwriting the outgoing task.
+      const archived = currentOwnerSubject
+        ? archiveTaskSession(
+            window.localStorage,
+            sessionForRender,
+            currentOwnerSubject,
+            registry,
+          )
+        : true;
+      if (!hadHistory || archived) {
+        // Persist synchronously so navigation after reset never re-reads the
+        // archived task as active. The save effect repeats the same write.
+        preserved = saveDraftSession(
+          fresh,
+          window.localStorage,
+          registry,
+          currentOwnerSubject
+            ? {
+                expectedOwnerSubject: currentOwnerSubject,
+                persistenceHydrated: true,
+              }
+            : { persistenceHydrated: true },
+        );
+      }
+    } catch {
+      preserved = false;
+    }
+    if (!preserved) {
+      setNewTaskError(
+        "The current task could not be preserved. No new task was started.",
+      );
+      window.setTimeout(() => taskActionsTriggerRef.current?.focus(), 0);
+      return;
+    }
+    setSession(fresh);
     setExecutionError(undefined);
+    setNewTaskError(undefined);
+    setInterpretPending(false);
     setValue("");
     window.setTimeout(() => field.current?.focus(), 0);
-  };
+  }, [
+    closeTaskActions,
+    currentOwnerSubject,
+    executionPending,
+    financialExecutionPending,
+    finishLiveMotion,
+    auth.primaryExecutionWallet?.address,
+    persistenceEnabled,
+    registry,
+    sessionForRender,
+  ]);
 
   useEffect(() => {
     let disposed = false;
@@ -1011,8 +1210,127 @@ export function Composer() {
     );
     if (saved) logHydrationEvent("SESSION_WRITE");
   }, [registry, session, persistenceEnabled, currentOwnerSubject]);
+  useEffect(() => {
+    const task = session.task;
+    const policy = session.policy;
+    const pendingClarification = session.pendingIntent !== undefined;
+    if (
+      !persistenceEnabled ||
+      !task ||
+      !policy ||
+      !isServiceExecutionOffered(task, pendingClarification) ||
+      !resolveRequiredCapability(task)
+    ) {
+      // Eligibility lost (or never present): clear a stuck pending flag in a
+      // microtask so the render path never shows a phantom comparison.
+      if (recommendationKeyRef.current !== null) {
+        recommendationKeyRef.current = null;
+        queueMicrotask(() => setRecommendationPending(false));
+      }
+      return;
+    }
+    const capability = resolveRequiredCapability(task) ?? "";
+    // P9B.2 single invalidation identity via the exact predicate tested in
+    // P9B.2: same key suppresses, a current stored entry suppresses, anything
+    // else fetches exactly once for this context.
+    const decision = decideRecommendationRefresh({
+      stored: session.recommendation,
+      task,
+      policy,
+      requiredCapability: capability,
+      registryVersion: registry.version,
+      currentKey: recommendationKeyRef.current,
+    });
+    if (!decision.fetch) {
+      recommendationKeyRef.current = decision.key;
+      return;
+    }
+    const key = decision.key;
+    recommendationKeyRef.current = key;
+    const motionId = `recommendation-${task.id}-${task.updatedAt}`;
+    const controller = new AbortController();
+    let cancelled = false;
+    let settled = false;
+    beginRecommendationMotion(motionId);
+    void (async () => {
+      setRecommendationPending(true);
+      try {
+        const response = await fetch("/api/services/recommendation", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            session: serializeDraftSession(session, registry),
+          }),
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        if (!response.ok) {
+          settled = true;
+          resolveRecommendationMotion(motionId, "");
+          return;
+        }
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          stored?: StoredServiceRecommendation;
+        };
+        if (cancelled) return;
+        if (payload.ok && payload.stored) {
+          const stored = payload.stored;
+          settled = true;
+          // Only verified model recommendations drive the typed motion and
+          // the Recommended by Omnis treatment. Deterministic fallback
+          // entries resolve empty motion and render no recommendation label.
+          if (stored.verified && !stored.fallback) {
+            resolveRecommendationMotion(motionId, stored.rationale);
+          } else {
+            resolveRecommendationMotion(motionId, "");
+          }
+          setSession((current) => {
+            if (
+              current.task?.id !== task.id ||
+              current.task.updatedAt !== task.updatedAt
+            ) {
+              return current;
+            }
+            return { ...current, recommendation: stored };
+          });
+        } else {
+          settled = true;
+          resolveRecommendationMotion(motionId, "");
+        }
+      } catch {
+        // Recommendation is advisory only; the deterministic card stays usable.
+        if (!cancelled) {
+          settled = true;
+          resolveRecommendationMotion(motionId, "");
+        }
+      } finally {
+        if (!cancelled && recommendationKeyRef.current === key) {
+          setRecommendationPending(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      // This run owned the key: release it so the next run refetches instead
+      // of early-returning on a key whose request was just cancelled (session
+      // updates such as appended user messages rerun the effect on the same
+      // key, including the correction path).
+      if (recommendationKeyRef.current === key) {
+        recommendationKeyRef.current = null;
+      }
+      // Never leave a thinking bubble behind on correction, retry, or
+      // unmount: an unresolved motion id blocks the queue behind it.
+      if (!settled) {
+        settled = true;
+        resolveRecommendationMotion(motionId, "");
+      }
+    };
+  }, [session, registry, persistenceEnabled, beginRecommendationMotion, resolveRecommendationMotion]);
 
   const startWalletCheck = async () => {
+
     if (!persistenceEnabled) return;
     const current = session;
     const wallet = current.task?.recipient;
@@ -1021,7 +1339,8 @@ export function Composer() {
       !wallet ||
       !current.task ||
       !current.policy ||
-      !current.discovery
+      !current.discovery ||
+      !isServiceExecutionOffered(current.task, current.pendingIntent !== undefined)
     ) {
       return;
     }
@@ -1077,12 +1396,12 @@ export function Composer() {
       if (!isCurrentOperation()) return;
       if (!response.ok) {
         const message =
-          isRecord(payload) && typeof payload.error === "string"
+          isRecordObject(payload) && typeof payload.error === "string"
             ? payload.error
             : "wallet activity purchase failed";
         throw new Error(message);
       }
-      if (!isRecord(payload) || !payload.session) {
+      if (!isRecordObject(payload) || !payload.session) {
         throw new Error("wallet activity response did not include a session");
       }
       const next = hydrateDraftSession(
@@ -1136,6 +1455,19 @@ export function Composer() {
           }),
         );
       }
+      for (const message of newOmnisMessages) {
+        if (outcome === "paid" && message === newOmnisMessages[1]) {
+          deferredMotionIdsRef.current.add(message.id);
+        }
+        conversationalMotion.begin(message.id);
+      }
+      if (outcome === "paid") {
+        conversationalMotion.resolve(newOmnisMessages[0].id, newOmnisMessages[0].content);
+      } else {
+        for (const message of newOmnisMessages) {
+          conversationalMotion.resolve(message.id, message.content);
+        }
+      }
       setSession((currentSession) => {
         if (
           !isCurrentOperation() ||
@@ -1149,6 +1481,97 @@ export function Composer() {
           messages: [...next.messages, ...newOmnisMessages],
         };
       });
+      if (outcome === "paid" && isCurrentOperation()) {
+        const synthesisTargetId = newOmnisMessages[1]?.id;
+        const synthesisFallback = newOmnisMessages[1]?.content;
+        const resolveSynthesisFallback = () => {
+          if (synthesisTargetId && synthesisFallback) {
+            deferredMotionIdsRef.current.delete(synthesisTargetId);
+            conversationalMotion.resolve(synthesisTargetId, synthesisFallback);
+          }
+        };
+        const paidPurchase = [...(next.servicePurchases ?? [])]
+          .reverse()
+          .find((entry) => entry.status === "paid");
+        if (CONVERSATION_ENABLED && synthesisTargetId && paidPurchase && paidPurchase.paymentAmount && next.task) {
+          const synthesisPaidAmount = paidPurchase.paidAmount ?? paidPurchase.paymentAmount;
+          const synthesisPaymentAmount = paidPurchase.paymentAmount;
+          const synthesisTaskId = next.task.id;
+          const synthesisOwner = operationOwner;
+          const synthesisApproval = next.approval;
+          const synthesisSettlement = next.settlement;
+          void (async () => {
+            try {
+              const synthesisResponse = await fetch("/api/conversation", {
+                method: "POST",
+                headers: { "content-type": "application/json", accept: "application/json" },
+                body: JSON.stringify({
+                  action: "synthesize",
+                  userText: "summarize the wallet check",
+                  purchase: {
+                    paidAmount: serializeMoney(synthesisPaidAmount),
+                    paymentAmount: serializeMoney(synthesisPaymentAmount),
+                    status: paidPurchase.status,
+                    serviceResult: paidPurchase.serviceResult ?? null,
+                  },
+                  serviceBudget: next.task?.serviceBudget
+                    ? serializeMoney(next.task.serviceBudget)
+                    : null,
+                  paymentText: finalPayment + " payment",
+                  approvalStillRequired: true,
+                }),
+              });
+               if (!synthesisResponse.ok) {
+                 resolveSynthesisFallback();
+                 return;
+               }
+              const synthesisPayload: unknown = await synthesisResponse.json();
+              if (
+                typeof synthesisPayload !== "object" ||
+                synthesisPayload === null ||
+                Array.isArray(synthesisPayload)
+              ) {
+                 resolveSynthesisFallback();
+                 return;
+              }
+              if (!("message" in synthesisPayload) || typeof synthesisPayload.message !== "string") {
+                 resolveSynthesisFallback();
+                 return;
+              }
+              if (!("fallback" in synthesisPayload)) {
+                 resolveSynthesisFallback();
+                 return;
+              }
+              const narrative = synthesisPayload.message;
+              setSession((prev) => {
+                if (prev.task?.id !== synthesisTaskId || prev.ownerSubject !== synthesisOwner) {
+                  return prev;
+                }
+                if (
+                  isSynthesisWriteStale(
+                    { approval: prev.approval, settlement: prev.settlement },
+                    { approval: synthesisApproval, settlement: synthesisSettlement },
+                  )
+                ) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  messages: prev.messages.map((m) =>
+                    m.id === synthesisTargetId ? { ...m, content: narrative } : m,
+                  ),
+                };
+              });
+              deferredMotionIdsRef.current.delete(synthesisTargetId);
+              conversationalMotion.resolve(synthesisTargetId, narrative);
+            } catch {
+              resolveSynthesisFallback();
+            }
+          })();
+        } else {
+          resolveSynthesisFallback();
+        }
+      }
       if (outcome === "failed" && isCurrentOperation()) {
         const errText =
           typeof (payload as { error?: string }).error === "string"
@@ -1237,11 +1660,12 @@ export function Composer() {
 
           <div
             className="conversational-canvas"
-            aria-live="polite"
             aria-label="Task conversation"
           >
             {sessionForRender.messages.map((message) => {
               const isUser = message.role === "user";
+              const motion = isUser ? undefined : conversationalMotion.get(message.id);
+              const isThinking = motion?.phase === "thinking";
               return (
                 <div
                   key={message.id}
@@ -1258,13 +1682,31 @@ export function Composer() {
                     </div>
                   )}
                   <div className="conversational-turn-content">
-                    <div
-                      className={`conversational-bubble ${isUser ? "user-bubble" : "omnis-bubble"}`}
-                    >
-                      <p className="eyebrow">{isUser ? "you" : "omnis"}</p>
-                      <p>{message.content}</p>
-                    </div>
-
+                    {isThinking ? (
+                      <div
+                        className="conversational-thinking-bubble"
+                        role="status"
+                        aria-label="Omnis is thinking"
+                        data-testid="omnis-thinking"
+                      >
+                        <span className="conversational-thinking-dots" aria-hidden="true">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                        <span className="sr-only">Omnis is thinking</span>
+                      </div>
+                    ) : (
+                      <div
+                        className={`conversational-bubble ${isUser ? "user-bubble" : "omnis-bubble"}`}
+                        data-testid={!isUser && motion?.phase === "typing" ? "omnis-typing" : undefined}
+                      >
+                        <p className="eyebrow">{isUser ? "you" : "omnis"}</p>
+                        <p aria-hidden={!isUser && motion?.phase === "typing" ? true : undefined}>
+                          {isUser ? message.content : (motion?.visibleText ?? message.content)}
+                        </p>
+                      </div>
+                    )}
                     {message.plan && (
                       <InlineTaskPlanCard
                         plan={message.plan}
@@ -1276,6 +1718,9 @@ export function Composer() {
                 </div>
               );
             })}
+            {conversationalMotion.pendingIds
+              .filter((id) => !sessionForRender.messages.some((message) => message.id === id))
+              .map((id) => <ConversationalThinkingBubble key={id} />)}
             {sessionForRender.messages.length === 0 &&
               sessionForRender.task && (
                 <div className="conversational-turn omnis-turn">
@@ -1329,7 +1774,49 @@ export function Composer() {
                       registry={registry}
                       executionPending={executionPending}
                       executionError={executionError}
-                      onStartService={startWalletCheck}
+                      hasPendingClarification={sessionForRender.pendingIntent !== undefined}
+                      recommendation={sessionForRender.recommendation ?? null}
+                      recommendationHistorical={(() => {
+                        // Full staleness against the current candidate set,
+                        // not just identity fields: a same-version registry
+                        // status, price, or eligibility change must demote a
+                        // verified entry to historical metadata.
+                        const stored = sessionForRender.recommendation;
+                        if (!stored) return false;
+                        const capability = resolveRequiredCapability(sessionForRender.task);
+                        if (!capability) return true;
+                        const pending = sessionForRender.pendingIntent !== undefined;
+                        const candidateSet = buildRecommendationCandidateSet({
+                          task: sessionForRender.task,
+                          policy: sessionForRender.policy,
+                          registry,
+                          requiredCapability: capability,
+                          existingPurchases: sessionForRender.servicePurchases ?? [],
+                          hasPendingClarification: pending,
+                        });
+                        return isRecommendationStale({
+                          stored,
+                          task: sessionForRender.task,
+                          policy: sessionForRender.policy,
+                          requiredCapability: capability,
+                          registryVersion: registry.version,
+                          candidateSet,
+                        });
+                      })()}
+                      recommendationPending={recommendationPending}
+                      recommendationMotion={(() => {
+                        const motionTask = sessionForRender.task;
+                        if (!motionTask) return undefined;
+                        return conversationalMotion.get(
+                          `recommendation-${motionTask.id}-${motionTask.updatedAt}`,
+                        );
+                      })()}
+                      {...(isServiceExecutionOffered(
+                        sessionForRender.task,
+                        sessionForRender.pendingIntent !== undefined,
+                      )
+                        ? { onStartService: startWalletCheck }
+                        : {})}
                       onReviewService={(serviceId) => {
                         setSession((current) => {
                           if (
@@ -1401,6 +1888,14 @@ export function Composer() {
               </div>
             )}
 
+            {interpretPending && (
+              <div className="conversational-turn omnis-turn">
+                <div className="omnis-turn-content">
+                  <ThinkingIndicator phase="understanding" />
+                </div>
+              </div>
+            )}
+
             {sessionForRender.task && sessionForRender.policy && (
               <div className="conversational-turn omnis-turn">
                 <div className="omnis-avatar" aria-hidden="true">
@@ -1424,11 +1919,26 @@ export function Composer() {
                     hydrationInput={hydrationInput}
                     isSessionContextCurrent={isSessionContextCurrent}
                     getSessionContextRunToken={getSessionContextRunToken}
+                    onBusyChange={setFinancialExecutionPending}
                   />
                 </div>
               </div>
             )}
           </div>
+          <div
+            className="sr-only"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-label={
+              [...sessionForRender.messages]
+                .reverse()
+                .map((message) =>
+                  message.role === "omnis" ? conversationalMotion.get(message.id) : undefined,
+                )
+                .find((motion) => motion?.phase === "complete")?.visibleText ?? ""
+            }
+          />
         </div>
       )}
 
@@ -1451,89 +1961,268 @@ export function Composer() {
               </button>
             </div>
           )}
+          {isTaskCorrectable && !isCaptureLocked && (
+            <div className="composer-reset" role="status">
+              <p>
+                plan ready. send a follow-up to correct it, start the wallet check, or start a
+                new task.
+              </p>
+              <button
+                className="button button-outline new-task-button"
+                type="button"
+                onClick={startNewTask}
+              >
+                start a new task
+              </button>
+            </div>
+          )}
 
           <form
             className="composer"
             onSubmit={(event) => {
               event.preventDefault();
               const text = value.trim();
-              if (!persistenceEnabled || !text || isCaptureLocked) return;
-              setSession((current) => {
-                const parse = parseFinancialIntent(
-                  text,
-                  contextFromTask(current.task, current.pendingIntent),
+              if (!persistenceEnabled || !text || isCaptureLocked || interpretPending) return;
+              const interpretationGeneration = ++operationGenerationRef.current;
+              interpretAbortRef.current?.abort();
+              const interpretationAbort = new AbortController();
+              interpretAbortRef.current = interpretationAbort;
+              const userMessageId = messageId("user");
+              const submitOmnisMessageId = messageId("omnis");
+              const submitSnapshot = session;
+              const submitTask = submitSnapshot.task;
+              const submitCorrectable =
+                submitTask !== undefined &&
+                (submitTask.status === "planned" || submitTask.status === "awaiting_approval") &&
+                submitSnapshot.approval === undefined &&
+                submitSnapshot.settlement === undefined &&
+                (submitSnapshot.servicePurchases ?? []).every(
+                  (purchase) => purchase.status === "failed",
                 );
-                const result = orchestrateFinancialIntent(parse, {
-                  ownerId: currentOwnerSubject ?? LOCAL_DRAFT_OWNER_ID,
-                  ownerSubject: currentOwnerSubject,
-                  ownerWalletAddress: auth.primaryExecutionWallet?.address,
-                  existingTask: current.task,
-                  existingPolicy: current.policy,
-                  now: new Date().toISOString(),
-                });
-                const now = new Date().toISOString();
-                const discovery =
-                  result.kind === "planned"
-                    ? discoveryStateForTask(
-                        result.task,
-                        result.policy,
-                        current.servicePurchases ?? [],
-                        registry,
-                        now,
-                      )
-                    : current.discovery;
-                const userMessage: ChatMessage = Object.freeze({
-                  id: messageId("user"),
-                  role: "user",
-                  kind: "message",
-                  content: text,
-                  createdAt: now,
-                });
-                const omnisMessage: ChatMessage = Object.freeze({
-                  id: messageId("omnis"),
-                  role: "omnis",
-                  kind: result.kind === "planned" ? "plan" : "clarification",
-                  content:
+              const submitPendingIntent =
+                submitSnapshot.pendingIntent ??
+                (submitCorrectable && submitTask
+                  ? {
+                      type: submitTask.type,
+                      recipient: submitTask.recipient,
+                      paymentAmount: submitTask.paymentAmount,
+                      paymentAsset: submitTask.paymentAmount?.asset,
+                      purpose: submitTask.purpose,
+                      serviceBudget: submitTask.serviceBudget,
+                      perServiceCap: submitTask.perServiceCap,
+                    }
+                  : undefined);
+              const submitPendingField = pendingFieldForIntent(submitPendingIntent);
+              const submitOwnerSubject = currentOwnerSubject;
+              const submitWalletAddress = auth.primaryExecutionWallet?.address;
+              const userCreatedAt = new Date().toISOString();
+               setSession((current) => ({
+                ...current,
+                messages: [
+                  ...current.messages,
+                  Object.freeze({
+                    id: userMessageId,
+                    role: "user",
+                    kind: "message",
+                    content: text,
+                    createdAt: userCreatedAt,
+                  }),
+                 ],
+               }));
+               finishLiveMotion();
+               conversationalMotion.begin(submitOmnisMessageId);
+               setValue("");
+              setInterpretPending(true);
+              void (async () => {
+                let gate: "plan" | "clarify" | "reject_authority_bypass" = "plan";
+                let modelCopy: string | undefined;
+                let gateMessage: string | undefined;
+                let promotedIntentRaw: unknown;
+                try {
+                  if (!CONVERSATION_ENABLED) {
+                    gate = "plan";
+                  } else {
+                  const response = await fetch("/api/conversation", {
+                    method: "POST",
+                    headers: {
+                      "content-type": "application/json",
+                      accept: "application/json",
+                    },
+                    body: JSON.stringify(
+                      buildInterpretRequestBody(text, {
+                        messages: submitSnapshot.messages,
+                        pendingIntent: submitPendingIntent,
+                        pendingField: submitPendingField,
+                        task: submitSnapshot.task,
+                        policy: submitSnapshot.policy,
+                      }),
+                    ),
+                    signal: AbortSignal.any([
+                      interpretationAbort.signal,
+                      AbortSignal.timeout(15000),
+                    ]),
+                  });
+                  if (response.ok) {
+                    const payload: unknown = await response.json();
+                    if (isRecordObject(payload)) {
+                      if (
+                        payload.gate === "reject_authority_bypass" &&
+                        typeof payload.message === "string"
+                      ) {
+                        gate = "reject_authority_bypass";
+                        gateMessage = payload.message;
+                      } else if (payload.gate === "clarify" && typeof payload.message === "string") {
+                        gate = "clarify";
+                        gateMessage = payload.message;
+                      } else if (payload.gate === "plan" && typeof payload.message === "string") {
+                        gate = "plan";
+                        if (payload.fallback === false) modelCopy = payload.message;
+                        if (payload.fallback === false) promotedIntentRaw = payload.promotedIntent;
+                      }
+                    }
+                  }
+                }
+                } catch {
+                  if (operationGenerationRef.current !== interpretationGeneration) return;
+                  gate = "plan";
+                }
+                if (operationGenerationRef.current !== interpretationGeneration) return;
+                // P9A.4 failsafe: the deterministic guard wins even if the
+                // route is unreachable, errors, or returns a stale plan for
+                // an authority-bypass turn. This turn must never reach the
+                // financial parser or orchestrator below.
+                if (gate !== "reject_authority_bypass" && containsAuthorityBypassClaim(text)) {
+                  gate = "reject_authority_bypass";
+                  if (!gateMessage) gateMessage = SECURITY_REFUSAL_MESSAGE;
+                }
+                setSession((current) => {
+                  if (operationGenerationRef.current !== interpretationGeneration) return current;
+                  if (!current.messages.some((m) => m.id === userMessageId)) return current;
+                  // P9A.4 security short-circuit: append the refusal and keep
+                  // every authoritative financial field byte-for-byte intact.
+                  // No parse, no orchestration, no replan, no discovery or
+                  // approval mutation from this turn.
+                  if (gate === "reject_authority_bypass") {
+                    const now = new Date().toISOString();
+                    const refusal: ChatMessage = Object.freeze({
+                      id: submitOmnisMessageId,
+                      role: "omnis",
+                      kind: "clarification",
+                      content: gateMessage ?? SECURITY_REFUSAL_MESSAGE,
+                      createdAt: now,
+                    });
+                    return { ...current, messages: [...current.messages, refusal] };
+                  }
+                  const now = new Date().toISOString();
+                  const promotedFields =
+                    gate === "plan" ? readPromotedIntent(promotedIntentRaw) : undefined;
+                  const parse =
+                    promotedFields !== undefined
+                      ? buildAuthoritativeParseResult(promotedFields, {
+                          sourceText: text,
+                          hadPending:
+                            current.pendingIntent !== undefined || current.task !== undefined,
+                        })
+                      : parseFinancialIntent(text, {
+                          ...contextFromTask(current.task, current.pendingIntent),
+                          pendingField: pendingFieldForIntent(current.pendingIntent) ?? undefined,
+                        });
+                  const isCorrection =
+                    current.task !== undefined &&
+                    (current.task.status === "planned" ||
+                      current.task.status === "awaiting_approval") &&
+                    current.approval === undefined &&
+                    current.settlement === undefined &&
+                    (current.servicePurchases ?? []).every(
+                      (purchase) => purchase.status === "failed",
+                    );
+                  const result = orchestrateFinancialIntent(parse, {
+                    ownerId: submitOwnerSubject ?? LOCAL_DRAFT_OWNER_ID,
+                    ownerSubject: submitOwnerSubject,
+                    ownerWalletAddress: submitWalletAddress,
+                    ...(isCorrection
+                      ? {}
+                      : { existingTask: current.task, existingPolicy: current.policy }),
+                    now: new Date().toISOString(),
+                  });
+                  const taskReplaced =
+                    isCorrection &&
+                    result.task !== undefined &&
+                    result.task.id !== current.task?.id;
+                  const discoveryPurchases = taskReplaced ? [] : (current.servicePurchases ?? []);
+                  const discovery =
                     result.kind === "planned"
-                      ? "I can do that. I'll check the wallet before preparing the payment."
-                      : result.clarification,
-                  ...(result.plan ? { plan: result.plan } : {}),
-                  createdAt: now,
-                });
-                const nextSession: TaskSession = {
-                  version: TASK_SESSION_VERSION,
-                  ...(currentOwnerSubject
-                    ? { ownerSubject: currentOwnerSubject }
-                    : {}),
-                  ...(auth.primaryExecutionWallet?.address
-                    ? { ownerWalletAddress: auth.primaryExecutionWallet.address }
-                    : {}),
-                  messages: [...current.messages, userMessage, omnisMessage],
-                  ...(result.kind === "planned"
-                    ? {}
-                    : result.task?.status === "draft"
-                      ? { pendingIntent: result.parse.fields }
-                      : current.pendingIntent
-                        ? { pendingIntent: current.pendingIntent }
+                      ? discoveryStateForTask(
+                          result.task,
+                          result.policy,
+                          discoveryPurchases,
+                          registry,
+                          now,
+                        )
+                      : taskReplaced
+                        ? undefined
+                        : current.discovery;
+                  const omnisMessage: ChatMessage = Object.freeze({
+                    id: submitOmnisMessageId,
+                    role: "omnis",
+                    kind: result.kind === "planned" ? "plan" : "clarification",
+                    content:
+                      gate === "clarify"
+                        ? (result.kind === "planned"
+                          ? (modelCopy ?? "I can do that. I'll check the wallet before preparing the payment.")
+                          : (result.clarification ?? gateMessage ?? "Tell Omnis what needs to be paid or researched."))
+                        : result.kind === "planned"
+                          ? (modelCopy ??
+                            (taskReplaced
+                              ? "Got it. I have updated the plan below. Prior checks for the old plan no longer apply."
+                              : "I can do that. I'll check the wallet before preparing the payment."))
+                          : result.clarification,
+                    ...(result.plan ? { plan: result.plan } : {}),
+                    createdAt: now,
+                  });
+                  const replacedTask = taskReplaced ? result.task : undefined;
+                  const retainedMessages =
+                    taskReplaced && replacedTask
+                      ? retainMessagesForTask(current.messages, replacedTask.id)
+                      : current.messages;
+                  const nextSession: TaskSession = {
+                    version: TASK_SESSION_VERSION,
+                    ...(submitOwnerSubject ? { ownerSubject: submitOwnerSubject } : {}),
+                    ...(submitWalletAddress ? { ownerWalletAddress: submitWalletAddress } : {}),
+                    messages: [...retainedMessages, omnisMessage],
+                    ...(result.kind === "planned"
+                      ? {}
+                      : result.task?.status === "draft"
+                        ? { pendingIntent: result.parse.fields }
+                        : current.pendingIntent
+                          ? { pendingIntent: current.pendingIntent }
+                          : {}),
+                    ...(result.task
+                      ? { task: result.task }
+                      : current.task
+                        ? { task: current.task }
                         : {}),
-                  ...(result.task
-                    ? { task: result.task }
-                    : current.task
-                      ? { task: current.task }
-                      : {}),
-                  ...(result.policy
-                    ? { policy: result.policy }
-                    : current.policy
-                      ? { policy: current.policy }
-                      : {}),
-                  ...(current.servicePurchases
-                    ? { servicePurchases: current.servicePurchases }
-                    : {}),
-                  ...(discovery ? { discovery } : {}),
-                };
-                return nextSession;
-              });
-              setValue("");
+                    ...(result.policy
+                      ? { policy: result.policy }
+                      : current.policy
+                        ? { policy: current.policy }
+                        : {}),
+                    ...(taskReplaced
+                      ? {}
+                      : current.servicePurchases
+                        ? { servicePurchases: current.servicePurchases }
+                        : {}),
+                    ...(discovery ? { discovery } : {}),
+                  };
+                  return nextSession;
+                });
+                if (operationGenerationRef.current === interpretationGeneration) {
+                  setInterpretPending(false);
+                  if (interpretAbortRef.current === interpretationAbort) {
+                    interpretAbortRef.current = null;
+                  }
+                }
+              })();
             }}
           >
             <label htmlFor="task-input" className="sr-only">
@@ -1555,10 +2244,49 @@ export function Composer() {
               rows={2}
               maxLength={8000}
               required
-              disabled={!persistenceEnabled || isCaptureLocked}
+              disabled={!persistenceEnabled || isCaptureLocked || interpretPending}
               aria-describedby="composer-help"
             />
             <div className="composer-bottom">
+              <div className="composer-actions" ref={taskActionsRef}>
+                <button
+                  ref={taskActionsTriggerRef}
+                  className="composer-actions-trigger"
+                  type="button"
+                  aria-label="Task actions"
+                  aria-haspopup="menu"
+                  aria-expanded={taskActionsOpen}
+                  aria-controls={taskActionsMenuId}
+                  title="Task actions"
+                  disabled={!persistenceEnabled}
+                  onClick={() => {
+                    setNewTaskError(undefined);
+                    setTaskActionsOpen((open) => !open);
+                  }}
+                >
+                  <Plus size={20} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+                {taskActionsOpen && (
+                  <div
+                    ref={taskActionsMenuRef}
+                    id={taskActionsMenuId}
+                    className="composer-actions-menu"
+                    role="menu"
+                    aria-label="Task actions"
+                  >
+                    <button
+                      ref={taskActionsItemRef}
+                      className="composer-actions-item"
+                      type="button"
+                      role="menuitem"
+                      onClick={() => startNewTask()}
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                      <span>start new task</span>
+                    </button>
+                  </div>
+                )}
+              </div>
               <span className="composer-mode">
                 <span className="preview-dot" /> task · budget · rules
               </span>
@@ -1566,12 +2294,18 @@ export function Composer() {
                 className="submit-task"
                 type="submit"
                 aria-label="Submit task"
-                disabled={!persistenceEnabled || isCaptureLocked || !value.trim()}
+                disabled={!persistenceEnabled || isCaptureLocked || interpretPending || !value.trim()}
               >
                 <ArrowUp size={20} aria-hidden="true" />
               </button>
             </div>
           </form>
+
+          {newTaskError && (
+            <p className="composer-reset-error" role="status">
+              {newTaskError}
+            </p>
+          )}
 
           <p id="composer-help" className="composer-help">
             <ShieldCheck size={14} aria-hidden="true" />
@@ -1590,6 +2324,7 @@ export function Composer() {
                     key={example.title}
                     type="button"
                     className="prompt-starter-pill"
+                    disabled={!persistenceEnabled}
                     onClick={() => {
                       setValue(example.prompt);
                       field.current?.focus();

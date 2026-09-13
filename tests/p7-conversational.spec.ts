@@ -271,18 +271,79 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
       page.locator(".conversational-turn.omnis-turn").first(),
     ).toBeVisible();
     await expect(page.locator(".omnis-avatar").first()).toBeVisible();
-    await expect(page.getByText("Who should receive 50 USDC?")).toBeVisible();
+    await expect(page.getByText("Who should receive 50 USDC?")).toBeVisible({ timeout: 10_000 });
 
+    // Capture the bubble count so the assertions below exercise the
+    // follow-up response, not the first clarification bubble. The ack
+    // bubble only renders after /api/conversation resolves.
+    const ackBubbles = page.locator(".omnis-bubble");
+    const bubblesBefore = await ackBubbles.count();
     // Provide recipient
     await input.fill(CONTRACTOR_WALLET);
     await page.getByRole("button", { name: "Submit task" }).click();
+    await expect(ackBubbles).toHaveCount(bubblesBefore + 1);
 
-    // Omnis acknowledges plan
+    // Assistant turn exists; exact prose may vary when a model is enabled,
+    // so assert semantic and safety truth instead of canned wording. The last
+    // message bubble carries the acknowledgement; trailing card-only turns
+    // hold deterministic state, not prose.
+    await expect(ackBubbles.last()).toBeVisible();
+    const ackText = await ackBubbles.last().innerText();
+    expect(ackText.trim().length).toBeGreaterThan(0);
+    // No premature completion, approval, or invented-transaction claims.
+    expect(ackText).not.toMatch(
+      /payment (sent|complete|submitted|settled|confirmed)|already (paid|sent)|has been (paid|sent)|approved|transaction (hash|confirmed|submitted)|proof (is )?ready/i,
+    );
+    expect(ackText).not.toMatch(/0x[0-9a-fA-F]{10,}/);
+
+    // Deterministic task card remains authoritative.
+    const planCard = page.locator(".task-plan-card").last();
+    await expect(planCard).toBeVisible();
+    await expect(planCard.getByText("50 USDC")).toBeVisible();
+    await expect(planCard.getByText("$0.05")).toBeVisible();
+    await expect(
+      planCard.getByText("Final payment requires approval"),
+    ).toBeVisible();
+    // User-supplied recipient echoes deterministically in the user bubble.
+    await expect(page.locator(".user-bubble").last()).toContainText(
+      CONTRACTOR_WALLET,
+    );
+    // Clarification state matches deterministic state: planned, no pay action.
+    await expect(
+      page.getByRole("button", { name: /Approve & pay/ }),
+    ).toHaveCount(0);
+  });
+
+  test("3b. model outage keeps the deterministic acknowledgement copy", async ({
+    page,
+  }) => {
+    await page.route("**/api/conversation", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "model unavailable" }),
+      });
+    });
+    await page.goto("/app");
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    const input = page.getByRole("textbox", { name: "Your financial task" });
+    await input.fill(
+      "Pay this contractor 50 USDC, but check the wallet first. Spend no more than $0.05 checking.",
+    );
+    await page.getByRole("button", { name: "Submit task" }).click();
+    await expect(page.getByText("Who should receive 50 USDC?")).toBeVisible({ timeout: 10_000 });
+
+    await input.fill(CONTRACTOR_WALLET);
+    await page.getByRole("button", { name: "Submit task" }).click();
+
+    // Model unavailable: the deterministic fallback copy stays exact.
     await expect(
       page.getByText(
         "I can do that. I'll check the wallet before preparing the payment.",
       ),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
 
     // Inline compact plan card
     const planCard = page.locator(".task-plan-card").last();
@@ -292,6 +353,7 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
     await expect(
       planCard.getByText("Final payment requires approval"),
     ).toBeVisible();
+
   });
 
   test("4. service card shows $0.003 with a $0.047 budget-after-purchase preview", async ({

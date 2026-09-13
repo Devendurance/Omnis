@@ -25,6 +25,7 @@ import {
   hydrateDraftSession,
   serializeDraftSession,
 } from "@/lib/tasks/persistence";
+import { isServiceExecutionOffered } from "@/lib/tasks/execution-gate";
 import type { TaskSession } from "@/lib/tasks/session";
 import {
   extractBearerToken,
@@ -286,6 +287,21 @@ export async function POST(request: Request): Promise<Response> {
       { status: 403 },
     );
   }
+  if (!isServiceExecutionOffered(session.task, session.pendingIntent !== undefined)) {
+    return Response.json(
+      { ok: false, error: "the task is not ready: resolve the payment, recipient, and budget before starting the wallet check" },
+      { status: 422 },
+    );
+  }
+  if (
+    session.task.type !== "pay_with_check" ||
+    session.task.recipient.toLowerCase() !== wallet.toLowerCase()
+  ) {
+    return Response.json(
+      { ok: false, error: "the requested wallet does not match the task recipient" },
+      { status: 400 },
+    );
+  }
   if (process.env.NODE_ENV === "production") {
     const demoCheck = checkAndRecordDemoPurchase(serverSubject);
     if (!demoCheck.ok) {
@@ -294,16 +310,6 @@ export async function POST(request: Request): Promise<Response> {
         { status: demoCheck.status },
       );
     }
-  }
-  if (
-    session.task.type !== "pay_with_check" ||
-    !session.task.recipient ||
-    session.task.recipient.toLowerCase() !== wallet.toLowerCase()
-  ) {
-    return Response.json(
-      { ok: false, error: "the requested wallet does not match the task recipient" },
-      { status: 400 },
-    );
   }
   const selected = session.discovery.selectedServiceId
     ? registry.getService(session.discovery.selectedServiceId)

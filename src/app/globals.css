@@ -1427,16 +1427,87 @@ svg {
   color: #7b7188;
 }
 .composer-bottom {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-top: 8px;
 }
 .composer-mode {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
   font-family: var(--font-mono), monospace;
   font-size: 12px;
   color: var(--muted);
+}
+.composer-actions {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+.composer-actions-trigger {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #bbacd0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.composer-actions-trigger:hover,
+.composer-actions-trigger[aria-expanded="true"] {
+  border-color: var(--violet);
+  background: #f3eefc;
+}
+.composer-actions-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.composer-actions-menu {
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100dvw - 24px);
+  padding: 6px;
+  border: 1px solid #bbacd0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+.composer-actions-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  text-align: left;
+}
+.composer-actions-item:hover,
+.composer-actions-item:focus-visible {
+  background: #f3eefc;
+}
+.composer-reset-error {
+  margin: 8px 0 0;
+  color: var(--blocked);
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
 }
 .submit-task {
   width: 44px;
@@ -3894,6 +3965,7 @@ dialog[open] {
   }
   .button,
   .icon-button,
+  .composer-actions-trigger,
   .nav-item.is-active,
   .filter,
   .checkpoint-node,
@@ -4103,6 +4175,59 @@ dialog[open] {
   margin: 0;
   font-size: 16px;
   line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.conversational-thinking-turn {
+  min-height: 38px;
+}
+
+.conversational-thinking-bubble {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 14px;
+  border: 1px solid rgba(123, 63, 242, 0.22);
+  border-radius: 9999px;
+  background: #f3eefc;
+  color: var(--ink, #14101c);
+}
+
+.conversational-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 12px;
+}
+
+.conversational-thinking-dots > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+  animation: conversationalThinkingDot 1.2s ease-in-out infinite;
+}
+
+.conversational-thinking-dots > span:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.conversational-thinking-dots > span:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@keyframes conversationalThinkingDot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
 /* Inline Cards inside the Conversation */
@@ -4265,6 +4390,84 @@ dialog[open] {
 .conversational-mono-text {
   font-family: var(--font-mono), monospace;
   font-size: 12px;
+}
+
+/* P9B service recommendation treatment */
+.conversational-recommendation {
+  background: #ffffff;
+  border: 1.5px solid rgba(123, 63, 242, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conversational-recommendation .conversational-pill-tag {
+  align-self: flex-start;
+  background: #7b3ff2;
+  color: #ffffff;
+}
+
+.conversational-recommendation-text {
+  font-size: 14px;
+  line-height: 22px;
+  color: #14101c;
+  margin: 0;
+}
+
+.conversational-recommendation-why {
+  font-size: 13px;
+  color: #62596c;
+}
+
+.conversational-recommendation-why > summary {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--violet);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.conversational-recommendation-why > summary:focus-visible {
+  outline: 2px solid #7b3ff2;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.conversational-recommendation-why > p {
+  margin: 6px 0 0;
+  line-height: 20px;
+}
+
+.conversational-recommendation-why > ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #14101c;
+}
+
+.conversational-recommendation-advisory {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: #62596c;
+}
+
+.conversational-recommendation-pending {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: #62596c;
+  margin: 12px 0 4px;
+}
+
+.conversational-recommendation-historical {
+  font-size: 13px;
+  margin: 12px 0 4px;
 }
 
 /* Service Discovery Meta Grid */
@@ -4799,6 +5002,11 @@ dialog[open] {
 @media (prefers-reduced-motion: reduce) {
   .omnis-thinking-pulse {
     animation: none;
+  }
+  .conversational-thinking-dots > span {
+    animation: none;
+    transform: none;
+    opacity: 0.7;
   }
   .conversational-turn {
     animation: none;

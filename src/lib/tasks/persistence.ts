@@ -57,6 +57,7 @@ import {
 } from "../services/capabilities";
 import { serviceRegistry, type ServiceRegistry } from "../services/registry";
 import type { TaskPlanView } from "./presentation";
+import type { StoredServiceRecommendation } from "../recommendation/verifier";
 
 export const DRAFT_SESSION_STORAGE_KEY = "useomnis:p1:draft-session";
 export const USER_SESSION_STORAGE_PREFIX = "useomnis:session:";
@@ -155,6 +156,7 @@ type PersistedPendingIntent = Readonly<{
   finalPaymentApprovalRequired?: boolean;
   unsupportedAsset?: string;
 }>;
+export type PersistedRecommendation = StoredServiceRecommendation;
 type PersistedDiscovery = TaskDiscoveryState;
 
 export type PersistedApproval = Readonly<{
@@ -232,6 +234,7 @@ type PersistedSession = Readonly<{
   servicePurchases?: readonly PersistedServicePurchase[];
   budget?: PersistedBudget;
   discovery?: PersistedDiscovery;
+  recommendation?: PersistedRecommendation;
   approval?: PersistedApproval;
   settlement?: PersistedSettlement;
   proof?: PersistedProof;
@@ -393,6 +396,7 @@ type RawSession = {
   servicePurchases?: unknown;
   budget?: unknown;
   discovery?: unknown;
+  recommendation?: unknown;
   approval?: unknown;
   settlement?: unknown;
   proof?: unknown;
@@ -677,6 +681,99 @@ function hydrateDiscovery(
   });
 }
 
+// Stored recommendations hydrate tolerantly: an invalid entry drops the
+// recommendation but never the session. Stale entries are rejected at use
+// time by isRecommendationStale, and historical display never executes.
+function hydrateRecommendation(value: unknown): StoredServiceRecommendation | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const candidate = value as Record<string, unknown>;
+  const text = (key: string): string | undefined =>
+    typeof candidate[key] === "string" && (candidate[key] as string).trim()
+      ? (candidate[key] as string)
+      : undefined;
+  const taskId = text("taskId");
+  const taskUpdatedAt = text("taskUpdatedAt");
+  const requiredCapability = text("requiredCapability");
+  const serviceBudgetLabel = text("serviceBudgetLabel");
+  const policyTaskId = text("policyTaskId");
+  const policyFingerprint = text("policyFingerprint");
+  const registryVersion = text("registryVersion");
+  const rationale = text("rationale");
+  const provider = text("provider");
+  const model = text("model");
+  const createdAt = text("createdAt");
+  if (
+    !taskId ||
+    !taskUpdatedAt ||
+    !requiredCapability ||
+    !serviceBudgetLabel ||
+    !policyTaskId ||
+    !policyFingerprint ||
+    !registryVersion ||
+    !rationale ||
+    !provider ||
+    !model ||
+    !createdAt
+  ) {
+    return undefined;
+  }
+  const candidateFingerprint =
+    candidate.candidateFingerprint === null
+      ? null
+      : text("candidateFingerprint");
+  if (candidateFingerprint === undefined) return undefined;
+  const recommendedServiceId =
+    candidate.recommendedServiceId === null
+      ? null
+      : text("recommendedServiceId");
+  if (recommendedServiceId === undefined) return undefined;
+  const recipient =
+    candidate.recipient === undefined ? undefined : text("recipient");
+  if (candidate.recipient !== undefined && recipient === undefined) return undefined;
+  if (typeof candidate.verified !== "boolean" || typeof candidate.fallback !== "boolean") {
+    return undefined;
+  }
+  if (!Array.isArray(candidate.comparisons)) return undefined;
+  const comparisons: Array<Readonly<{ serviceId: string; assessment: string }>> = [];
+  for (const entry of candidate.comparisons) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      return undefined;
+    }
+    const record = entry as Record<string, unknown>;
+    if (typeof record.serviceId !== "string" || !record.serviceId.trim()) {
+      return undefined;
+    }
+    if (typeof record.assessment !== "string" || !record.assessment.trim()) {
+      return undefined;
+    }
+    comparisons.push(
+      Object.freeze({ serviceId: record.serviceId, assessment: record.assessment }),
+    );
+  }
+  return Object.freeze({
+    taskId,
+    taskUpdatedAt,
+    requiredCapability,
+    ...(recipient ? { recipient } : {}),
+    serviceBudgetLabel,
+    policyTaskId,
+    policyFingerprint,
+    registryVersion,
+    recommendedServiceId,
+    candidateFingerprint,
+    rationale,
+    comparisons: Object.freeze(comparisons),
+    provider,
+    model,
+    verified: candidate.verified,
+    fallback: candidate.fallback,
+    createdAt,
+  });
+}
+
 export function serializeTask(task: FinancialTask): PersistedTask {
   return {
     id: task.id,
@@ -864,6 +961,18 @@ function serializeDiscovery(
     registryVersion: registry.version,
     ...(selectedService ? { selectedServiceId: selectedService.id } : {}),
   });
+}
+
+// Stored recommendations are already plain JSON-safe data. Serialization
+// validates the shape fail-closed so a corrupt in-memory entry cannot reach
+// storage; hydration stays tolerant so old or invalid entries never break
+// session loads.
+function serializeRecommendation(
+  recommendation: StoredServiceRecommendation,
+): PersistedRecommendation {
+  const hydrated = hydrateRecommendation(JSON.parse(JSON.stringify(recommendation)));
+  if (!hydrated) throw new Error("session recommendation is invalid");
+  return hydrated;
 }
 
 function serializePlan(plan: TaskPlanView): TaskPlanView {
@@ -1622,6 +1731,9 @@ export function serializeDraftSession(
   if (session.discovery && !session.task) {
     throw new Error("discovery state requires a task");
   }
+  if (session.recommendation && !session.task) {
+    throw new Error("recommendation state requires a task");
+  }
   let budget: TaskBudgetSnapshot | undefined;
   if (session.task && session.policy) {
     assertTaskPolicyMatches(session.task, session.policy);
@@ -1667,6 +1779,9 @@ export function serializeDraftSession(
     ...(budget ? { budget: serializeBudget(budget) } : {}),
     ...(session.discovery
       ? { discovery: serializeDiscovery(session.discovery, registry) }
+      : {}),
+    ...(session.recommendation
+      ? { recommendation: serializeRecommendation(session.recommendation) }
       : {}),
     ...(session.approval
       ? { approval: serializeApproval(session.approval) }
@@ -1824,6 +1939,7 @@ export function hydrateDraftSession(
       candidate.version !== EARLIER_TASK_SESSION_VERSION
         ? hydrateDiscovery(candidate.discovery, task, registry)
         : undefined;
+    const recommendation = hydrateRecommendation(candidate.recommendation);
     if (
       messages.some(
         (message) => message.plan && (!task || message.plan.taskId !== task.id),
@@ -1861,6 +1977,7 @@ export function hydrateDraftSession(
         : {}),
       ...(calculatedBudget ? { budget: calculatedBudget } : {}),
       ...(discovery ? { discovery } : {}),
+      ...(recommendation ? { recommendation } : {}),
       ...(approval ? { approval } : {}),
       ...(settlement ? { settlement } : {}),
       ...(proof ? { proof } : {}),

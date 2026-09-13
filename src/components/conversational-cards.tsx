@@ -21,8 +21,20 @@ import type {
 } from "@/lib/domain";
 import { formatMoney } from "@/lib/domain";
 import { getTaskBudgetState } from "@/lib/tasks/runtime";
+import { isServiceExecutionOffered } from "@/lib/tasks/execution-gate";
 import type { TaskPlanView } from "@/lib/tasks";
 import type { TaskDiscoveryState } from "@/lib/tasks/session";
+import type { StoredServiceRecommendation } from "@/lib/recommendation/verifier";
+import {
+  buildRecommendationCandidateSet,
+  RECOMMENDATION_RATIONALE_ADVISORY,
+  recommendationBadge,
+  recommendationFacts,
+} from "@/lib/recommendation";
+import {
+  ConversationalThinkingBubble,
+  type MotionEntryState,
+} from "./conversational-motion";
 import {
   WALLET_ACTIVITY_SERVICE_ID,
   resolveRequiredCapability,
@@ -255,6 +267,11 @@ export function InlineServiceDiscoveryCard({
   registry,
   executionPending,
   executionError,
+  hasPendingClarification = false,
+  recommendation,
+  recommendationHistorical = false,
+  recommendationPending = false,
+  recommendationMotion,
   onStartService,
   onReviewService,
 }: {
@@ -265,7 +282,12 @@ export function InlineServiceDiscoveryCard({
   registry: ServiceRegistry;
   executionPending: boolean;
   executionError?: string;
-  onStartService: () => void;
+  hasPendingClarification?: boolean;
+  recommendation?: StoredServiceRecommendation | null;
+  recommendationHistorical?: boolean;
+  recommendationPending?: boolean;
+  recommendationMotion?: MotionEntryState | null;
+  onStartService?: () => void;
   onReviewService: (serviceId: string) => void;
 }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -295,11 +317,33 @@ export function InlineServiceDiscoveryCard({
   const remainingAfter = service?.price
     ? Math.max(0, maxSpend - priceNum)
     : null;
+  const executable = isServiceExecutionOffered(task, hasPendingClarification);
   const canStart =
+    executable &&
     service?.id === WALLET_ACTIVITY_SERVICE_ID &&
     service.status === "available" &&
     !service.catalogOnly &&
     Boolean(onStartService);
+  // P9B.1: badge wording follows the provider (real Groq earns the Omnis
+  // badge; mock output is a preview), and fact bullets come from the verified
+  // candidate DTO rebuilt deterministically here, never from model prose.
+  const badge = recommendation ? recommendationBadge(recommendation) : null;
+  const recommendedCandidate =
+    recommendation?.recommendedServiceId && requiredCapability
+      ? (buildRecommendationCandidateSet({
+          task,
+          policy,
+          registry,
+          requiredCapability,
+          existingPurchases: servicePurchases,
+          ...(hasPendingClarification ? { hasPendingClarification: true } : {}),
+        }).candidates.find(
+          (candidate) => candidate.serviceId === recommendation.recommendedServiceId,
+        ) ?? null)
+      : null;
+  const facts = recommendedCandidate
+    ? recommendationFacts(recommendedCandidate)
+    : null;
 
   return (
     <div
@@ -312,7 +356,7 @@ export function InlineServiceDiscoveryCard({
           <span className="eyebrow conversational-eyebrow">
             service discovery
           </span>
-          <span className="conversational-pill-tag">ready to run</span>
+          <span className="conversational-pill-tag">{executable ? "ready to run" : "waiting for task details"}</span>
         </div>
         <h3 className="conversational-card-title">wallet activity check</h3>
         <p className="conversational-card-desc">
@@ -320,6 +364,81 @@ export function InlineServiceDiscoveryCard({
           settlement.
         </p>
       </div>
+      {recommendationMotion?.phase === "thinking" && <ConversationalThinkingBubble />}
+      {recommendationMotion &&
+        recommendationMotion.phase !== "thinking" &&
+        recommendationMotion.visibleText &&
+        recommendation &&
+        !recommendationHistorical &&
+        recommendation.verified &&
+        !recommendation.fallback &&
+        recommendation.recommendedServiceId === service?.id && (
+          <div className="conversational-recommendation">
+            <span className="conversational-pill-tag">{badge}</span>
+            <span className="conversational-recommendation-advisory">
+              {RECOMMENDATION_RATIONALE_ADVISORY}
+            </span>
+            <p
+              className="conversational-recommendation-text"
+              data-testid={
+                recommendationMotion.phase === "typing" ? "omnis-typing" : undefined
+              }
+              aria-hidden={recommendationMotion.phase === "typing" ? true : undefined}
+            >
+              {recommendationMotion.visibleText}
+            </p>
+            {recommendationMotion.phase === "complete" && facts && (
+              <details className="conversational-recommendation-why">
+                <summary>Why this service?</summary>
+                <ul>
+                  <li>{facts.capabilityLabel}</li>
+                  <li>{facts.executableLabel}</li>
+                  <li>{facts.networkLine}</li>
+                  <li>{facts.costLabel}</li>
+                  <li>{facts.budgetAfterLabel}</li>
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+      {recommendationPending && !recommendationMotion && (
+        <p className="conversational-recommendation-pending" role="status">
+          comparing matching services...
+        </p>
+      )}
+      {(!recommendationMotion || !recommendationMotion.visibleText) &&
+        recommendation &&
+        !recommendationHistorical &&
+        recommendation.verified &&
+        !recommendation.fallback &&
+        recommendation.recommendedServiceId === service?.id && (
+          <div className="conversational-recommendation">
+            <span className="conversational-pill-tag">{badge}</span>
+            <span className="conversational-recommendation-advisory">
+              {RECOMMENDATION_RATIONALE_ADVISORY}
+            </span>
+            <p className="conversational-recommendation-text">
+              {recommendation.rationale}
+            </p>
+            {facts && (
+              <details className="conversational-recommendation-why">
+                <summary>Why this service?</summary>
+                <ul>
+                  <li>{facts.capabilityLabel}</li>
+                  <li>{facts.executableLabel}</li>
+                  <li>{facts.networkLine}</li>
+                  <li>{facts.costLabel}</li>
+                  <li>{facts.budgetAfterLabel}</li>
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+      {recommendation && recommendationHistorical && (
+        <p className="conversational-recommendation-historical muted">
+          previous recommendation (historical, not used): {recommendation.rationale}
+        </p>
+      )}
 
       <div className="conversational-service-meta-grid">
         <div className="conversational-meta-box">

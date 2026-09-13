@@ -3,6 +3,13 @@ import {
   money,
   type FinancialTaskType,
 } from "../domain";
+import {
+  declinesWalletCheck,
+  normalizeServiceBudgetReply,
+  pendingFieldFor,
+  type PendingField,
+} from "./semantic";
+import { readPendingField } from "../conversation/request";
 import type {
   ConversationContext,
   FinancialIntentFields,
@@ -55,6 +62,10 @@ const ASSET_STOP_WORDS: Readonly<Record<string, true>> = {
   CONTRACTOR: true,
   VERIFY: true,
   INSPECT: true,
+  CENT: true,
+  CENTS: true,
+  DOLLAR: true,
+  DOLLARS: true,
 };
 
 const RECIPIENT_STOP_WORDS: Readonly<Record<string, true>> = {
@@ -71,12 +82,12 @@ const RECIPIENT_STOP_WORDS: Readonly<Record<string, true>> = {
   this: true,
   vendor: true,
 };
-const STANDALONE_AMOUNT_PATTERN = /^\$?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*$/;
+const STANDALONE_AMOUNT_PATTERN = /^\$?\s*(\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)\s*$/;
 const STANDALONE_ASSET_PATTERN =
   /^\s*([A-Za-z][A-Za-z0-9._-]*)\s*[.!?]?\s*$/;
-
 const TOKEN_AMOUNT_PATTERN =
-  /(\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?\s*([A-Za-z][A-Za-z0-9._-]*)\b/g;
+  /(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)\s*([A-Za-z][A-Za-z0-9._-]*)\b/g;
+
 
 const PAYMENT_VERB_SOURCE = "pay(?:ing)?|send(?:ing)?|transfer(?:ring)?|payment";
 const PAYMENT_VERB_PATTERN = new RegExp(`\\b(?:${PAYMENT_VERB_SOURCE})\\b`, "i");
@@ -87,7 +98,7 @@ const BUDGET_SUFFIX_PATTERN =
   /\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?:USD|dollars?)?\s*(?:service|research|check(?:ing)?)?\s+(?:budget|cap|allowance|max)\b/gi;
 const EXPLICIT_CAP_PATTERN =
   /\b(?:per\s+service|each\s+service|per\s+check|service\s+cap|checking\s+cap|capped\s+at)\b[^0-9$]{0,48}\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)/gi;
-const NUMBER_PATTERN = /\d+(?:,\d{3})*(?:\.\d+)?/g;
+const NUMBER_PATTERN = /(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)/g;
 const ZERO_PAYMENT_AMBIGUITY = "payment amount must be greater than zero";
 
 const WORD_NUMBERS: Readonly<Record<string, number>> = {
@@ -125,7 +136,10 @@ const WORD_CENTS_PATTERN = new RegExp(
   "gi",
 );
 const WORD_BUDGET_CONTEXT_PATTERN =
-  /\b(?:at most|up to|no more than|max(?:imum)?|spend|budget|allowance|cap|capped)\b/i;
+  /\b(?:at most|up to|no more than|max(?:imum)?|spend|spending|budget|allowance|cap|capped|use|using|give|over|under|within)\b/i;
+const CENT_AFTER_CONTEXT_PATTERN =
+  /^\s*(?:for|doing|to|on|with|in)\b[\s\S]{0,32}\b(?:services?|check(?:ing)?|inspect(?:ion|ing)?|research|verif\w*|screen(?:ing)?)\b/i;
+const NUMERIC_CENTS_PATTERN = /\b(\d{1,3})\s*cents?\b/gi;
 
 function wordCountToNumber(text: string): number | undefined {
   const tokens = text.toLowerCase().split(/[\s-]+/);
@@ -149,17 +163,29 @@ function wordCountToNumber(text: string): number | undefined {
   return undefined;
 }
 
+function centBudgetApplies(input: string, index: number, end: number): boolean {
+  const before = input.slice(Math.max(0, index - 28), index);
+  if (WORD_BUDGET_CONTEXT_PATTERN.test(before)) return true;
+  return CENT_AFTER_CONTEXT_PATTERN.test(input.slice(end, end + 48));
+}
+
 function extractWordCentBudgets(input: string): string[] {
   const amounts: string[] = [];
+  const pushCents = (cents: number | undefined) => {
+    if (cents === undefined) return;
+    const text = (cents / 100).toFixed(2);
+    amounts.push(text.replace(/0$/, "").replace(/\.$/, ".0"));
+  };
   for (const match of input.matchAll(WORD_CENTS_PATTERN)) {
     const phrase = match[2] ? `${match[1]} ${match[2]}` : match[1];
-    const cents = wordCountToNumber(phrase);
-    if (cents === undefined) continue;
-    const before = input.slice(Math.max(0, (match.index ?? 0) - 28), match.index ?? 0);
-    if (!WORD_BUDGET_CONTEXT_PATTERN.test(before)) continue;
-    const dollars = cents / 100;
-    const text = dollars.toFixed(2);
-    amounts.push(text.replace(/0$/, "").replace(/\.$/, ".0"));
+    const end = (match.index ?? 0) + match[0].length;
+    if (!centBudgetApplies(input, match.index ?? 0, end)) continue;
+    pushCents(wordCountToNumber(phrase));
+  }
+  for (const match of input.matchAll(NUMERIC_CENTS_PATTERN)) {
+    const end = (match.index ?? 0) + match[0].length;
+    if (!centBudgetApplies(input, match.index ?? 0, end)) continue;
+    pushCents(Number(match[1]));
   }
   return amounts;
 }
@@ -180,7 +206,8 @@ function normalizeAssetToken(
 }
 
 function normalizeNumber(value: string): string {
-  return value.replace(/,/g, "");
+  const stripped = value.replace(/,/g, "");
+  return stripped.startsWith(".") ? `0${stripped}` : stripped;
 }
 
 function isZeroAmountText(value: string | undefined): boolean {
@@ -201,6 +228,29 @@ function parseUsdcAmount(value: string) {
   } catch {
     return undefined;
   }
+}
+
+const GETS_PAYMENT_PATTERN = /\b(?:gets?|receives?)\s+(?:\$\s*)?(?:\d|\.\d)/i;
+
+function hasPaymentSignal(input: string): boolean {
+  if (PAYMENT_VERB_PATTERN.test(input)) return true;
+  return GETS_PAYMENT_PATTERN.test(input);
+}
+
+function extractBudgetSpans(input: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  const collect = (pattern: RegExp) => {
+    for (const match of input.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      spans.push({ start, end: start + match[0].length });
+    }
+  };
+  collect(BUDGET_KEYWORD_PATTERN);
+  collect(BUDGET_SUFFIX_PATTERN);
+  collect(EXPLICIT_CAP_PATTERN);
+  collect(WORD_CENTS_PATTERN);
+  collect(NUMERIC_CENTS_PATTERN);
+  return spans;
 }
 
 function extractPaymentCandidates(input: string): Array<{
@@ -225,6 +275,7 @@ function extractPaymentCandidates(input: string): Array<{
     : -1;
   const paymentEnd =
     boundary >= 0 ? paymentStart + boundary : input.length;
+  const budgetSpans = extractBudgetSpans(input);
   for (const match of input.matchAll(TOKEN_AMOUNT_PATTERN)) {
     const amountText = match[0].match(NUMBER_PATTERN)?.[0];
     const token = match[2];
@@ -236,6 +287,7 @@ function extractPaymentCandidates(input: string): Array<{
       ? normalizeAssetToken(token, Boolean(command))
       : undefined;
     if (!amountText || !asset) continue;
+    if (budgetSpans.some((span) => index >= span.start && index < span.end)) continue;
     if (command && (index < paymentStart || index >= paymentEnd)) continue;
     const before = input.slice(Math.max(0, index - 36), index);
     const budgetMatch =
@@ -272,6 +324,13 @@ function extractNumericPayment(
     .map((match) => match[0])
     .filter((num) => !knownBudgetAmounts.has(num));
 }
+const RECIPIENT_COUNT_WORDS: Readonly<Record<string, true>> = {
+  hundred: true,
+  thousand: true,
+  few: true,
+  several: true,
+};
+
 function extractRecipients(input: string): string[] {
   const values: string[] = [];
   const add = (value: string) => {
@@ -282,20 +341,28 @@ function extractRecipients(input: string): string[] {
 
   for (const match of input.matchAll(/\b0x[a-fA-F0-9]{4,}\b/g)) add(match[0]);
   for (const match of input.matchAll(
-    /\b(?:recipient|address|wallet)\s*(?:is|:)\s*([A-Za-z0-9][A-Za-z0-9._-]{2,})\b/gi,
+    /\b(?:recipient|address|wallet)\s*(?::?\s*is\s*:?|:)\s*([A-Za-z0-9][A-Za-z0-9._-]{2,})\b/gi,
   )) {
     add(match[1]);
   }
   for (const match of input.matchAll(
     /\bto\s+(0x[a-fA-F0-9]{4,}|[A-Za-z0-9][A-Za-z0-9._-]{2,})\b/gi,
   )) {
+    const before = input.slice(0, match.index ?? 0);
+    if (/\bup\s*$/i.test(before)) continue;
+    const candidateWord = match[1].toLowerCase();
+    if (WORD_NUMBERS[candidateWord] !== undefined || RECIPIENT_COUNT_WORDS[candidateWord]) continue;
     add(match[1]);
+  }
+  const hasAddress = values.some((value) => /^0x[a-fA-F0-9]{40}$/.test(value));
+  if (hasAddress) {
+    return values.filter((value) => /^0x[a-fA-F0-9]{40}$/.test(value));
   }
   return values;
 }
 
 function detectType(input: string): FinancialTaskType | undefined {
-  const hasPaymentVerb = PAYMENT_VERB_PATTERN.test(input);
+  const hasPaymentVerb = hasPaymentSignal(input);
   const hasSequentialCheckThenPay =
     /\bcheck\b[\s\S]{0,80}\bthen\s+(?:pay|send|transfer|sending|transferring|paying)\b/i.test(
       input,
@@ -312,6 +379,9 @@ function detectType(input: string): FinancialTaskType | undefined {
       input,
     ) ||
     /\b(?:wallet\s+check|check\s+budget|checking\s+budget|check\s+first)\b/i.test(
+      input,
+    ) ||
+    /\b(?:check|checking|verify|inspect|screen|risk)\b[\s\S]{0,48}\b0x[a-fA-F0-9]{4,}\b/i.test(
       input,
     ) ||
     /\b(?:spend|budget|allowance|cap|capped)\b[\s\S]{0,48}\bcheck(?:ing)?\b/i.test(
@@ -351,23 +421,28 @@ function detectPurpose(
   return purpose && purpose.length <= 80 ? purpose : undefined;
 }
 
+function maskAddresses(input: string): string {
+  return input.replace(/\b0x[a-fA-F0-9]+\b/g, "WALLETADDR");
+}
+
 function extractBudgetAmounts(input: string): string[] {
   const amounts = new Set<string>();
-  for (const match of input.matchAll(BUDGET_KEYWORD_PATTERN)) {
+  const masked = maskAddresses(input);
+  for (const match of masked.matchAll(BUDGET_KEYWORD_PATTERN)) {
     if (/\b(?:pay|send|transfer|then)\b/i.test(match[0])) continue;
     amounts.add(match[1]);
   }
-  for (const match of input.matchAll(BUDGET_SUFFIX_PATTERN)) {
+  for (const match of masked.matchAll(BUDGET_SUFFIX_PATTERN)) {
     amounts.add(match[1]);
   }
-  for (const wordAmount of extractWordCentBudgets(input)) {
+  for (const wordAmount of extractWordCentBudgets(masked)) {
     amounts.add(wordAmount);
   }
   return [...amounts];
 }
 
 function extractExplicitCap(input: string): string | undefined {
-  return input.match(EXPLICIT_CAP_PATTERN)?.[1];
+  return maskAddresses(input).match(EXPLICIT_CAP_PATTERN)?.[1];
 }
 
 function clarificationFor(
@@ -382,6 +457,17 @@ function clarificationFor(
   }
   if (ambiguities.includes(ZERO_PAYMENT_AMBIGUITY)) {
     return "Payment amount must be greater than zero. What amount should Omnis pay?";
+  }
+  if (ambiguities.includes("payment asset is ambiguous")) {
+    const candidate = fields.paymentAmountText?.trim();
+    if (candidate) return `Do you mean ${candidate} USDC?`;
+    return "Which supported asset should Omnis use? P1 supports USDC only.";
+  }
+  if (ambiguities.includes("recipient is ambiguous")) {
+    return "I found more than one possible recipient. Which exact wallet address should Omnis use?";
+  }
+  if (ambiguities.includes("service budget is ambiguous")) {
+    return "I found more than one possible checking budget. What is the most Omnis may spend checking?";
   }
   if (ambiguities.length > 0) {
     return "I found more than one possible payment amount. Which amount should Omnis use?";
@@ -414,12 +500,45 @@ function clarificationFor(
 function extractFollowupFields(
   input: string,
   pending: FinancialIntentFields,
-): MutableFinancialIntentFields {
+  pendingFieldOverride?: string,
+): {
+  fields: MutableFinancialIntentFields;
+  ambiguities: string[];
+} {
   const fields: MutableFinancialIntentFields = {};
+  const ambiguities: string[] = [];
   const missing = buildMissingFields(pending);
+  const pendingPaymentAsset = pending.paymentAsset ?? pending.paymentAmount?.asset;
   const amountMatch = STANDALONE_AMOUNT_PATTERN.exec(input);
   const needsPaymentAmount = missing.includes("payment_amount");
   const needsServiceBudget = missing.includes("service_budget");
+  const pendingField =
+    readPendingField(pendingFieldOverride) ?? pendingFieldFor(missing);
+  const trimmed = input.trim();
+
+  if (pendingField === "recipient") {
+    const address = trimmed.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0];
+    if (address) {
+      fields.recipient = address;
+      return { fields, ambiguities };
+    }
+  }
+
+  if (pendingField === "serviceBudget") {
+    const mentionsPayment =
+      /\bpay(?:ment|ing)?\b/i.test(trimmed) &&
+      !/\b(?:budget|cap|allowance|spend|service|check(?:ing)?|cents?|dollars?|\$)\b/i.test(trimmed);
+    if (!mentionsPayment) {
+      const budgetText = normalizeServiceBudgetReply(trimmed);
+      if (budgetText) {
+        const serviceBudget = parseUsdAmount(budgetText);
+        if (serviceBudget) {
+          fields.serviceBudget = serviceBudget;
+          return { fields, ambiguities };
+        }
+      }
+    }
+  }
 
   if (amountMatch && needsServiceBudget && !needsPaymentAmount) {
     const serviceBudget = parseUsdAmount(amountMatch[1]);
@@ -449,12 +568,36 @@ function extractFollowupFields(
     if (input.trimStart().startsWith("$")) {
       fields.paymentAsset = "USD";
       fields.unsupportedAsset = "USD";
-    } else if (pending.paymentAsset === "USDC") {
+    } else if (pendingPaymentAsset === "USDC") {
       const paymentAmount = parseUsdcAmount(amountMatch[1]);
       if (paymentAmount) fields.paymentAmount = paymentAmount;
     }
   }
-  return fields;
+
+  if (!amountMatch && needsPaymentAmount === false && pending.paymentAmount !== undefined) {
+    const correctionAmount =
+      input.match(
+        /\b(?:actually|make (?:that|it)|change (?:that |it )?to|instead)\b[^\d$]{0,24}(\d+(?:\.\d+)?|\.\d+)/i,
+      )?.[1] ?? input.match(/(\d+(?:\.\d+)?|\.\d+)[^\d$]{0,24}\binstead\b/i)?.[1];
+    if (
+      correctionAmount !== undefined &&
+      pendingPaymentAsset === "USDC" &&
+      !/\b(?:USD|USDC|dollars?|budget|cap|allowance|spend|service|check(?:ing)?|cents?)\b/i.test(input)
+    ) {
+      if (pending.type !== undefined) fields.type = pending.type;
+      if (correctionAmount.includes(".")) {
+        const paymentAmount = parseUsdcAmount(correctionAmount);
+        if (paymentAmount) {
+          fields.paymentAmountText = correctionAmount;
+          fields.paymentAmount = paymentAmount;
+        }
+      } else {
+        fields.paymentAmountText = correctionAmount;
+        ambiguities.push("payment asset is ambiguous");
+      }
+    }
+  }
+  return { fields, ambiguities };
 }
 
 function mergeDefinedFields(
@@ -589,6 +732,13 @@ function buildMissingFields(
   return missing;
 }
 
+export function pendingFieldForIntent(
+  pending: FinancialIntentFields | undefined,
+): PendingField | null {
+  if (!pending) return null;
+  return pendingFieldFor(buildMissingFields(pending));
+}
+
 export function parseFinancialIntent(
   input: string,
   conversationContext: ConversationContext = {},
@@ -596,12 +746,51 @@ export function parseFinancialIntent(
   const sourceText = typeof input === "string" ? input.trim() : "";
   const extracted = extractFields(sourceText);
   const pending = conversationContext.pendingIntent;
+  const pendingField = pending
+    ? (readPendingField(conversationContext.pendingField) ??
+      pendingFieldFor(buildMissingFields(pending)))
+    : null;
   const followup = pending
-    ? extractFollowupFields(sourceText, pending)
-    : {};
-  const mergedExtracted = mergeDefinedFields(extracted.fields, followup);
-  let fields = mergeDefinedFields(pending, mergedExtracted);
-  const ambiguities = [...extracted.ambiguities];
+    ? extractFollowupFields(sourceText, pending, pendingField ?? undefined)
+    : { fields: {}, ambiguities: [] as string[] };
+  let mergedExtracted = mergeDefinedFields(extracted.fields, followup.fields);
+  let ambiguities = [...extracted.ambiguities, ...followup.ambiguities];
+  if (pendingField === "serviceBudget" && followup.fields.serviceBudget) {
+    const { paymentAmount, paymentAmountText, paymentAsset, unsupportedAsset, ...rest } =
+      mergedExtracted;
+    void paymentAmount;
+    void paymentAmountText;
+    void paymentAsset;
+    void unsupportedAsset;
+    mergedExtracted = rest;
+    ambiguities = ambiguities.filter(
+      (ambiguity) =>
+        ambiguity !== "payment amount is ambiguous" &&
+        ambiguity !== "payment asset is ambiguous" &&
+        ambiguity !== "payment amount precision is unsupported",
+    );
+  }
+  const bareAmountWithoutAsset =
+    pending?.paymentAmount !== undefined &&
+    mergedExtracted.paymentAmount === undefined &&
+    mergedExtracted.paymentAmountText !== undefined &&
+    mergedExtracted.paymentAsset === undefined &&
+    mergedExtracted.unsupportedAsset === undefined &&
+    PAYMENT_VERB_PATTERN.test(sourceText);
+  if (bareAmountWithoutAsset) {
+    if (!ambiguities.includes("payment asset is ambiguous")) {
+      ambiguities.push("payment asset is ambiguous");
+    }
+    if (pending?.type !== undefined) mergedExtracted.type = pending.type;
+  }
+  if (
+    pending?.type === "pay_with_check" &&
+    mergedExtracted.type === "pay" &&
+    !declinesWalletCheck(sourceText)
+  ) {
+    mergedExtracted.type = "pay_with_check";
+  }
+   let fields = mergeDefinedFields(pending, mergedExtracted);
 
   if (fields.paymentAsset === "USDC" && fields.unsupportedAsset) {
     fields = { ...fields, unsupportedAsset: undefined };
@@ -659,5 +848,43 @@ export function parseFinancialIntent(
     confidence,
     ...(clarification ? { clarification } : {}),
     sourceText,
+  });
+}
+export function buildAuthoritativeParseResult(
+  fields: FinancialIntentFields,
+  options: { sourceText?: string; hadPending?: boolean } = {},
+): FinancialIntentParseResult {
+  const missing = buildMissingFields(fields);
+  const ambiguities: string[] = [];
+  const unsupportedAsset = fields.unsupportedAsset;
+  const status = unsupportedAsset
+    ? "unsupported"
+    : missing.length > 0
+      ? "needs_clarification"
+      : "ready";
+  const confidence =
+    status === "ready"
+      ? options.hadPending
+        ? "medium"
+        : "high"
+      : options.hadPending
+        ? "medium"
+        : "low";
+  const clarification = clarificationFor(
+    fields.type,
+    fields,
+    missing,
+    ambiguities,
+    unsupportedAsset,
+  );
+  return Object.freeze({
+    status,
+    ...(fields.type ? { intentType: fields.type } : {}),
+    fields: Object.freeze({ ...fields }),
+    missing: Object.freeze(missing),
+    ambiguities: Object.freeze(ambiguities),
+    confidence,
+    ...(clarification ? { clarification } : {}),
+    sourceText: options.sourceText ?? "",
   });
 }

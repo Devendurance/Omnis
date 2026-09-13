@@ -38,6 +38,7 @@ export type FinancialIntentFields = Readonly<{
 
 export type ConversationContext = Readonly<{
   pendingIntent?: FinancialIntentFields;
+  pendingField?: string;
 }>;
 
 export type FinancialIntentParseResult = Readonly<{

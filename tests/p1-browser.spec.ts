@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { DRAFT_SESSION_STORAGE_KEY } from "../src/lib/tasks/persistence";
 
+
 test("clarification updates the same draft into a validated plan without execution", async ({
   page,
 }) => {
   await page.goto("/app");
-  await page.evaluate((key) => localStorage.removeItem(key), DRAFT_SESSION_STORAGE_KEY);
-  await page.reload();
 
   const input = page.getByRole("textbox", { name: "Your financial task" });
   const submit = page.getByRole("button", { name: "Submit task" });
@@ -15,7 +14,7 @@ test("clarification updates the same draft into a validated plan without executi
   );
   await submit.click();
 
-  await expect(page.getByText("Who should receive 50 USDC?", { exact: true })).toBeVisible();
+  await expect(page.getByText("Who should receive 50 USDC?", { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText("task draft", { exact: true })).toBeVisible();
   const firstTaskId = await page.evaluate((key) => {
     const raw = localStorage.getItem(key);
@@ -43,8 +42,11 @@ test("clarification updates the same draft into a validated plan without executi
   expect(secondTaskId).toBe(firstTaskId);
   await page.reload();
   await expect(page.getByText("validated task plan", { exact: true })).toBeVisible();
-  await expect(input).toBeDisabled();
-  await expect(submit).toBeDisabled();
+  // Product contract: a planned, unpaid, unapproved task stays
+  // conversationally correctable, so the composer remains enabled.
+  await expect(input).toBeEnabled();
+  await input.fill("Actually make that 0.20 USDC.");
+  await expect(submit).toBeEnabled();
   const reset = page.getByRole("button", { name: "start a new task" });
   await expect(reset).toBeVisible();
   await reset.click();
@@ -68,7 +70,7 @@ test("reload preserves follow-up payment context", async ({ page }) => {
   await submit.click();
   await expect(
     page.getByText("What amount should Omnis pay?", { exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10_000 });
 
   await input.fill("50");
   await submit.click();
@@ -77,7 +79,7 @@ test("reload preserves follow-up payment context", async ({ page }) => {
       "Which supported asset should Omnis use? P1 supports USDC only.",
       { exact: true },
     ),
-  ).toBeVisible();
+    ).toBeVisible({ timeout: 10_000 });
 
   const firstTaskId = await page.evaluate((key) => {
     const raw = localStorage.getItem(key);

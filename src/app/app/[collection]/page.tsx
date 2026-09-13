@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Collection } from "@/components/collection";
+import { ConnectedRecords } from "@/components/connected-records";
 import { pageContent, type CollectionKind } from "@/lib/ui-model";
 import { getP4ALiveServiceRegistry } from "@/lib/services/server/p4a";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,14 @@ export default async function CollectionPage({
   params: Promise<{ collection: string }>;
 }) {
   const kind = getKind((await params).collection);
+  if (
+    kind === "tasks" ||
+    kind === "activity" ||
+    kind === "policies" ||
+    kind === "approvals"
+  ) {
+    return <ConnectedRecords kind={kind} />;
+  }
   const state =
     kind === "services"
       ? {

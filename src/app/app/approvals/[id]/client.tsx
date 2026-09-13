@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { formatMoney, type ApprovalRecord } from "@/lib/domain";
 import { loadDraftSession } from "@/lib/tasks/persistence";
+import { loadTaskArchive } from "@/lib/tasks/archive";
 import { serviceRegistry } from "@/lib/services/registry";
 
 function subscribe(callback: () => void) {
@@ -32,13 +33,27 @@ export default function ApprovalRecordPage({
     const session = loadDraftSession(window.localStorage, serviceRegistry, {
       expectedOwnerSubject: auth.ownerSubject,
     });
-    if (
-      session?.approval &&
-      (session.approval.id === id ||
-        session.approval.taskId === id ||
-        session.task?.id === id)
-    ) {
-      approval = session.approval;
+    const matches = (candidate: typeof session) =>
+      candidate?.approval &&
+      (candidate.approval.id === id ||
+        candidate.approval.taskId === id ||
+        candidate.task?.id === id);
+    if (matches(session)) {
+      approval = session?.approval ?? null;
+    } else {
+      // Proof and approval records survive starting a new task: the archive
+      // holds the same immutable session snapshots, never a second source.
+      const archived = loadTaskArchive(
+        window.localStorage,
+        auth.ownerSubject,
+        serviceRegistry,
+      );
+      for (const candidate of archived) {
+        if (matches(candidate)) {
+          approval = candidate.approval ?? null;
+          break;
+        }
+      }
     }
   }
 

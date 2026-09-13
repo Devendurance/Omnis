@@ -21,6 +21,7 @@ import type {
   ServiceDescriptor,
 } from "@/lib/domain";
 import { getTaskBudgetState } from "@/lib/tasks/runtime";
+import { isServiceExecutionOffered } from "@/lib/tasks/execution-gate";
 import type { TaskDiscoveryState } from "@/lib/tasks/session";
 import { FeatureCard, MetadataRows, StatusLabel } from "./ui";
 
@@ -334,6 +335,7 @@ export function ServiceDiscoveryCard({
     selectedCandidate !== undefined &&
     selectedId === selectedCandidate.descriptor.id;
   const canStart =
+    isServiceExecutionOffered(task, false) &&
     selectedDescriptor?.id === WALLET_ACTIVITY_SERVICE_ID &&
     selectedDescriptor.status === "available" &&
     !selectedDescriptor.catalogOnly &&
