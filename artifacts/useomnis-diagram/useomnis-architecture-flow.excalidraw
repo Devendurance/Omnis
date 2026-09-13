@@ -1,0 +1,1941 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-cli",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "canvas_bg",
+      "x": 0,
+      "y": 0,
+      "width": 1600,
+      "height": 1200,
+      "backgroundColor": "#050308",
+      "strokeColor": "#050308",
+      "strokeWidth": 0,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "canvas_title",
+      "x": 60,
+      "y": 32,
+      "width": 520,
+      "height": 40,
+      "text": "useOmnis / mandate to proof",
+      "fontSize": 32,
+      "fontFamily": 2,
+      "strokeColor": "#FFFFFF"
+    },
+    {
+      "type": "text",
+      "id": "canvas_subtitle",
+      "x": 62,
+      "y": 82,
+      "width": 820,
+      "height": 24,
+      "text": "bounded financial execution for machine commerce + final USDC settlement",
+      "fontSize": 16,
+      "fontFamily": 3,
+      "strokeColor": "#C9B7FF"
+    },
+    {
+      "type": "rectangle",
+      "id": "legend_model",
+      "x": 1060,
+      "y": 32,
+      "width": 92,
+      "height": 34,
+      "backgroundColor": "#D0BFFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "legend_model_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "legend_model_label",
+      "x": 1070,
+      "y": 42,
+      "width": 72,
+      "height": 14,
+      "text": "model",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "legend_model",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "legend_authority",
+      "x": 1168,
+      "y": 32,
+      "width": 132,
+      "height": 34,
+      "backgroundColor": "#FFF3BF",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "legend_authority_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "legend_authority_label",
+      "x": 1178,
+      "y": 42,
+      "width": 112,
+      "height": 14,
+      "text": "authority",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "legend_authority",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "legend_user",
+      "x": 1316,
+      "y": 32,
+      "width": 112,
+      "height": 34,
+      "backgroundColor": "#FFD8A8",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "legend_user_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "legend_user_label",
+      "x": 1326,
+      "y": 42,
+      "width": 92,
+      "height": 14,
+      "text": "user action",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "legend_user",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "legend_proof",
+      "x": 1444,
+      "y": 32,
+      "width": 92,
+      "height": 34,
+      "backgroundColor": "#B2F2BB",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "legend_proof_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "legend_proof_label",
+      "x": 1454,
+      "y": 42,
+      "width": 72,
+      "height": 14,
+      "text": "proof",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "legend_proof",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_panel",
+      "x": 40,
+      "y": 140,
+      "width": 1520,
+      "height": 380,
+      "backgroundColor": "#F3EEFC",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "flow_title",
+      "x": 72,
+      "y": 166,
+      "width": 420,
+      "height": 30,
+      "text": "01 / product + user flow",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "text",
+      "id": "flow_subtitle",
+      "x": 74,
+      "y": 204,
+      "width": 820,
+      "height": 24,
+      "text": "one bounded task, two distinct money moments, one durable record",
+      "fontSize": 16,
+      "fontFamily": 3,
+      "strokeColor": "#5F6368"
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_guardrail",
+      "x": 1045,
+      "y": 162,
+      "width": 475,
+      "height": 56,
+      "backgroundColor": "#FFC9C9",
+      "strokeColor": "#EC4899",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_guardrail_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_guardrail_label",
+      "x": 1055,
+      "y": 172,
+      "width": 455,
+      "height": 36,
+      "text": "model may interpret + recommend + explain\nnever authorize, sign, settle, or create proof",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_guardrail",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_divider",
+      "x": 72,
+      "y": 238,
+      "width": 1448,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          1448,
+          0
+        ]
+      ],
+      "endArrowhead": null,
+      "strokeColor": "#D8CFEA",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_intent",
+      "x": 70,
+      "y": 278,
+      "width": 200,
+      "height": 110,
+      "backgroundColor": "#A5D8FF",
+      "strokeColor": "#4A9EED",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a1",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_intent_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_intent_label",
+      "x": 80,
+      "y": 288,
+      "width": 180,
+      "height": 90,
+      "text": "01  intent\ntell Omnis what to pay\n0.10 USDC + wallet check",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_intent",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_a1",
+      "x": 270,
+      "y": 333,
+      "width": 40,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "flow_intent",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "flow_policy",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_policy",
+      "x": 310,
+      "y": 278,
+      "width": 200,
+      "height": 110,
+      "backgroundColor": "#FFF3BF",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a1",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_a2",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_policy_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_policy_label",
+      "x": 320,
+      "y": 288,
+      "width": 180,
+      "height": 90,
+      "text": "02  policy\nparse + validate\nbudget $0.05 / rules",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_policy",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_a2",
+      "x": 510,
+      "y": 333,
+      "width": 40,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "flow_policy",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "flow_service",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_service",
+      "x": 550,
+      "y": 278,
+      "width": 200,
+      "height": 110,
+      "backgroundColor": "#D0BFFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a2",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_a3",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_service_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_service_label",
+      "x": 560,
+      "y": 288,
+      "width": 180,
+      "height": 90,
+      "text": "03  service\nrecommend + run\nwallet check · $0.003",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_service",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_a3",
+      "x": 750,
+      "y": 333,
+      "width": 40,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "flow_service",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "flow_approval",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_approval",
+      "x": 790,
+      "y": 278,
+      "width": 200,
+      "height": 110,
+      "backgroundColor": "#FFD8A8",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a3",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_a4",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_approval_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_approval_label",
+      "x": 800,
+      "y": 288,
+      "width": 180,
+      "height": 90,
+      "text": "04  approval\nreview exact plan\nuser explicitly approves",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_approval",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_a4",
+      "x": 990,
+      "y": 333,
+      "width": 40,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "flow_approval",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "flow_settlement",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_settlement",
+      "x": 1030,
+      "y": 278,
+      "width": 200,
+      "height": 110,
+      "backgroundColor": "#C3FAE8",
+      "strokeColor": "#06B6D4",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a4",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_a5",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_settlement_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_settlement_label",
+      "x": 1040,
+      "y": 288,
+      "width": 180,
+      "height": 90,
+      "text": "05  settlement\nsign on Arc Testnet\nreconcile status + logs",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_settlement",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "flow_a5",
+      "x": 1230,
+      "y": 333,
+      "width": 40,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "flow_settlement",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "flow_proof",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_proof",
+      "x": 1270,
+      "y": 278,
+      "width": 230,
+      "height": 110,
+      "backgroundColor": "#B2F2BB",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "flow_a5",
+          "type": "arrow"
+        },
+        {
+          "id": "flow_proof_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "flow_proof_label",
+      "x": 1280,
+      "y": 288,
+      "width": 210,
+      "height": 90,
+      "text": "06  proof\nOmnisProof receipt\none canonical record",
+      "fontSize": 17,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "flow_proof",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "tag_hedera",
+      "x": 575,
+      "y": 425,
+      "width": 150,
+      "height": 42,
+      "backgroundColor": "#E5DBFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "tag_hedera_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "tag_hedera_label",
+      "x": 585,
+      "y": 435,
+      "width": 130,
+      "height": 22,
+      "text": "HEDERA / x402",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "tag_hedera",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "tag_privy",
+      "x": 815,
+      "y": 425,
+      "width": 150,
+      "height": 42,
+      "backgroundColor": "#E5DBFF",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "tag_privy_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "tag_privy_label",
+      "x": 825,
+      "y": 435,
+      "width": 130,
+      "height": 22,
+      "text": "PRIVY / owner",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "tag_privy",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "tag_arc",
+      "x": 1055,
+      "y": 425,
+      "width": 150,
+      "height": 42,
+      "backgroundColor": "#D3F9D8",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "tag_arc_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "tag_arc_label",
+      "x": 1065,
+      "y": 435,
+      "width": 130,
+      "height": 22,
+      "text": "ARC / settlement",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "tag_arc",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "architecture_panel",
+      "x": 40,
+      "y": 560,
+      "width": 970,
+      "height": 600,
+      "backgroundColor": "#F8F9FA",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "architecture_title",
+      "x": 72,
+      "y": 586,
+      "width": 430,
+      "height": 30,
+      "text": "02 / system architecture",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "text",
+      "id": "architecture_subtitle",
+      "x": 74,
+      "y": 624,
+      "width": 820,
+      "height": 24,
+      "text": "flexible reasoning sits above deterministic financial authority",
+      "fontSize": 16,
+      "fontFamily": 3,
+      "strokeColor": "#5F6368"
+    },
+    {
+      "type": "arrow",
+      "id": "architecture_divider",
+      "x": 72,
+      "y": 652,
+      "width": 906,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          906,
+          0
+        ]
+      ],
+      "endArrowhead": null,
+      "strokeColor": "#DEE2E6",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "zone_conversation",
+      "x": 70,
+      "y": 700,
+      "width": 300,
+      "height": 410,
+      "backgroundColor": "#E5DBFF",
+      "strokeColor": "#D0BFFF",
+      "strokeWidth": 1,
+      "fillStyle": "solid",
+      "opacity": 38,
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "zone_authority",
+      "x": 390,
+      "y": 700,
+      "width": 210,
+      "height": 410,
+      "backgroundColor": "#FFF3BF",
+      "strokeColor": "#FFE08A",
+      "strokeWidth": 1,
+      "fillStyle": "solid",
+      "opacity": 42,
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "zone_execution",
+      "x": 620,
+      "y": 700,
+      "width": 260,
+      "height": 410,
+      "backgroundColor": "#DBE4FF",
+      "strokeColor": "#A5D8FF",
+      "strokeWidth": 1,
+      "fillStyle": "solid",
+      "opacity": 42,
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "zone_proof",
+      "x": 900,
+      "y": 700,
+      "width": 80,
+      "height": 410,
+      "backgroundColor": "#D3F9D8",
+      "strokeColor": "#B2F2BB",
+      "strokeWidth": 1,
+      "fillStyle": "solid",
+      "opacity": 42,
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "zone_conversation_label",
+      "x": 88,
+      "y": 716,
+      "width": 140,
+      "height": 20,
+      "text": "INTERPRET",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#6B4DB2"
+    },
+    {
+      "type": "text",
+      "id": "zone_authority_label",
+      "x": 408,
+      "y": 716,
+      "width": 150,
+      "height": 20,
+      "text": "AUTHORIZE",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#A56B00"
+    },
+    {
+      "type": "text",
+      "id": "zone_execution_label",
+      "x": 638,
+      "y": 716,
+      "width": 120,
+      "height": 20,
+      "text": "EXECUTE",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#3476B8"
+    },
+    {
+      "type": "text",
+      "id": "zone_proof_label",
+      "x": 914,
+      "y": 716,
+      "width": 90,
+      "height": 20,
+      "text": "PROVE",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#26853D"
+    },
+    {
+      "type": "ellipse",
+      "id": "arch_human",
+      "x": 84,
+      "y": 820,
+      "width": 112,
+      "height": 72,
+      "backgroundColor": "#A5D8FF",
+      "strokeColor": "#4A9EED",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "arch_a1",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_human_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "arch_human_label",
+      "x": 94,
+      "y": 830,
+      "width": 92,
+      "height": 52,
+      "text": "you\nintent",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_human",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_chat",
+      "x": 220,
+      "y": 770,
+      "width": 130,
+      "height": 100,
+      "backgroundColor": "#A5D8FF",
+      "strokeColor": "#4A9EED",
+      "strokeWidth": 2,
+      "fillStyle": "hachure",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a1",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a2",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_chat_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_chat_label",
+      "x": 230,
+      "y": 780,
+      "width": 110,
+      "height": 80,
+      "text": "chat + composer\nTask Brief",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_chat",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a1",
+      "x": 196,
+      "y": 856,
+      "width": 24,
+      "height": -36,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          24,
+          -36
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#4A9EED",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_human",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_chat",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a1_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a1_label",
+      "x": 206,
+      "y": 866,
+      "width": 4,
+      "height": -56,
+      "text": "input",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a1",
+      "strokeColor": "#3476B8"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_groq",
+      "x": 220,
+      "y": 930,
+      "width": 130,
+      "height": 100,
+      "backgroundColor": "#D0BFFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "hachure",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a2",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a3",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_groq_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_groq_label",
+      "x": 230,
+      "y": 940,
+      "width": 110,
+      "height": 80,
+      "text": "Groq\nsemantic slots\n+ recommendation",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_groq",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a2",
+      "x": 285,
+      "y": 870,
+      "width": 0,
+      "height": 60,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          60
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_chat",
+        "fixedPoint": [
+          0.5,
+          1
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_groq",
+        "fixedPoint": [
+          0.5,
+          0
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a2_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a2_label",
+      "x": 295,
+      "y": 880,
+      "width": 80,
+      "height": 40,
+      "text": "interpret",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a2",
+      "strokeColor": "#6B4DB2"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_authority",
+      "x": 405,
+      "y": 835,
+      "width": 180,
+      "height": 110,
+      "backgroundColor": "#FFF3BF",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a3",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a4",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a5",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_authority_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_authority_label",
+      "x": 415,
+      "y": 845,
+      "width": 160,
+      "height": 90,
+      "text": "deterministic validator\n+ P2 policy gate\nALLOW / APPROVE\n/ DENY",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_authority",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a3",
+      "x": 350,
+      "y": 980,
+      "width": 55,
+      "height": -90,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          55,
+          -90
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_groq",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_authority",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a3_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a3_label",
+      "x": 360,
+      "y": 990,
+      "width": 35,
+      "height": -110,
+      "text": "ground",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a3",
+      "strokeColor": "#A56B00"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_hedera",
+      "x": 645,
+      "y": 760,
+      "width": 210,
+      "height": 108,
+      "backgroundColor": "#E5DBFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "hachure",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a4",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a6",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_hedera_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_hedera_label",
+      "x": 655,
+      "y": 770,
+      "width": 190,
+      "height": 88,
+      "text": "Hedera x402\nwallet-activity service\n$0.003 HTS USDC\none-shot paid request",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_hedera",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a4",
+      "x": 585,
+      "y": 872,
+      "width": 60,
+      "height": -46,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60,
+          -46
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_authority",
+        "fixedPoint": [
+          1,
+          0.35
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_hedera",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a4_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a4_label",
+      "x": 595,
+      "y": 882,
+      "width": 40,
+      "height": -66,
+      "text": "ALLOW",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a4",
+      "strokeColor": "#6B4DB2"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_privy_arc",
+      "x": 645,
+      "y": 950,
+      "width": 210,
+      "height": 108,
+      "backgroundColor": "#C3FAE8",
+      "strokeColor": "#06B6D4",
+      "strokeWidth": 2,
+      "fillStyle": "hachure",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a5",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a7",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_privy_arc_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_privy_arc_label",
+      "x": 655,
+      "y": 960,
+      "width": 190,
+      "height": 88,
+      "text": "Privy wallet → Arc\nexact USDC settlement\nexplicit approval first\nread-only reconcile",
+      "fontSize": 15,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_privy_arc",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a5",
+      "x": 585,
+      "y": 908,
+      "width": 60,
+      "height": 82,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60,
+          82
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#F59E0B",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_authority",
+        "fixedPoint": [
+          1,
+          0.65
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_privy_arc",
+        "fixedPoint": [
+          0,
+          0.5
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a5_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a5_label",
+      "x": 595,
+      "y": 918,
+      "width": 40,
+      "height": 62,
+      "text": "APPROVE",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a5",
+      "strokeColor": "#A56B00"
+    },
+    {
+      "type": "rectangle",
+      "id": "arch_proof",
+      "x": 895,
+      "y": 835,
+      "width": 90,
+      "height": 130,
+      "backgroundColor": "#B2F2BB",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "arch_a6",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_a7",
+          "type": "arrow"
+        },
+        {
+          "id": "arch_proof_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_proof_label",
+      "x": 905,
+      "y": 845,
+      "width": 70,
+      "height": 110,
+      "text": "task\nledger +\nproof",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_proof",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a6",
+      "x": 855,
+      "y": 814,
+      "width": 40,
+      "height": 76,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          76
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_hedera",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_proof",
+        "fixedPoint": [
+          0,
+          0.3
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a6_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a6_label",
+      "x": 865,
+      "y": 824,
+      "width": 20,
+      "height": 56,
+      "text": "result",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a6",
+      "strokeColor": "#26853D"
+    },
+    {
+      "type": "arrow",
+      "id": "arch_a7",
+      "x": 855,
+      "y": 1004,
+      "width": 40,
+      "height": -75,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          -75
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "startBinding": {
+        "elementId": "arch_privy_arc",
+        "fixedPoint": [
+          1,
+          0.5
+        ]
+      },
+      "endBinding": {
+        "elementId": "arch_proof",
+        "fixedPoint": [
+          0,
+          0.7
+        ]
+      },
+      "boundElements": [
+        {
+          "id": "arch_a7_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "arch_a7_label",
+      "x": 865,
+      "y": 1014,
+      "width": 20,
+      "height": -95,
+      "text": "receipt",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "arch_a7",
+      "strokeColor": "#26853D"
+    },
+    {
+      "type": "text",
+      "id": "architecture_note",
+      "x": 88,
+      "y": 1070,
+      "width": 850,
+      "height": 20,
+      "text": "model output is advisory; amounts, recipients, approval and proof stay deterministic",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#6B4DB2"
+    },
+    {
+      "type": "rectangle",
+      "id": "sponsor_panel",
+      "x": 1040,
+      "y": 560,
+      "width": 520,
+      "height": 600,
+      "backgroundColor": "#FFFFFF",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "sponsor_title",
+      "x": 1072,
+      "y": 586,
+      "width": 340,
+      "height": 30,
+      "text": "03 / sponsor roles",
+      "fontSize": 24,
+      "fontFamily": 2,
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "text",
+      "id": "sponsor_subtitle",
+      "x": 1074,
+      "y": 624,
+      "width": 440,
+      "height": 24,
+      "text": "each rail earns its place in the same use case",
+      "fontSize": 16,
+      "fontFamily": 3,
+      "strokeColor": "#5F6368"
+    },
+    {
+      "type": "arrow",
+      "id": "sponsor_divider",
+      "x": 1072,
+      "y": 652,
+      "width": 456,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          456,
+          0
+        ]
+      ],
+      "endArrowhead": null,
+      "strokeColor": "#DEE2E6",
+      "strokeWidth": 2,
+      "roughness": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "sponsor_hedera",
+      "x": 1070,
+      "y": 690,
+      "width": 460,
+      "height": 118,
+      "backgroundColor": "#E5DBFF",
+      "strokeColor": "#8B5CF6",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "sponsor_hedera_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "sponsor_hedera_label",
+      "x": 1080,
+      "y": 700,
+      "width": 440,
+      "height": 98,
+      "text": "HEDERA  ·  machine commerce\nx402 wallet-activity check at $0.003\nuse case: buy evidence inside the $0.05 P2 budget",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "sponsor_hedera",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "sponsor_privy",
+      "x": 1070,
+      "y": 832,
+      "width": 460,
+      "height": 118,
+      "backgroundColor": "#D0BFFF",
+      "strokeColor": "#7B3FF2",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "sponsor_privy_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "sponsor_privy_label",
+      "x": 1080,
+      "y": 842,
+      "width": 440,
+      "height": 98,
+      "text": "PRIVY  ·  identity + execution wallet\nowner-bound session, approval and signing\nuse case: secure the human handoff before settlement",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "sponsor_privy",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "rectangle",
+      "id": "sponsor_arc",
+      "x": 1070,
+      "y": 974,
+      "width": 460,
+      "height": 118,
+      "backgroundColor": "#D3F9D8",
+      "strokeColor": "#22C55E",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      },
+      "boundElements": [
+        {
+          "id": "sponsor_arc_label",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "sponsor_arc_label",
+      "x": 1080,
+      "y": 984,
+      "width": 440,
+      "height": 98,
+      "text": "ARC  ·  final USDC settlement\nexact amount + recipient, hash persisted once\nuse case: complete, reconcile and prove the mandate",
+      "fontSize": 16,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "sponsor_arc",
+      "strokeColor": "#14101C"
+    },
+    {
+      "type": "text",
+      "id": "sponsor_scope_note",
+      "x": 1072,
+      "y": 1110,
+      "width": 450,
+      "height": 36,
+      "text": "scope note: Arc evidence is a 0.01 USDC test transfer;\nflagship 0.10 USDC mandate is not executed in test mode",
+      "fontSize": 14,
+      "fontFamily": 3,
+      "strokeColor": "#757575"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}

@@ -11,10 +11,13 @@
 [![Hedera](https://img.shields.io/badge/Hedera-x402-222222?style=flat-square)](https://hedera.com/)
 [![Arc](https://img.shields.io/badge/Arc-USDC%20Settlement-6C47FF?style=flat-square)](https://www.arc.network/)
 [![Privy](https://img.shields.io/badge/Privy-Embedded%20Wallets-6C47FF?style=flat-square)](https://www.privy.io/)
-[![Tests](https://img.shields.io/badge/tests-382%20passing-2EA44F?style=flat-square)](./tests)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F2A93B?style=flat-square)](./LICENSE)
 
-**useOmnis is a bounded financial execution agent.** Give it a task, a budget, and rules. It can buy what it needs to make progress, stop at the boundaries you define, execute only what you approve, and keep verifiable proof of what happened.
+**useOmnis is a bounded financial execution agent.** A user gives Omnis a
+financial task, budget and rules. Groq interprets natural language and
+recommends bounded machine services, but deterministic validation and P2
+remain authoritative over recipients, amounts, service eligibility, budgets,
+approval and execution.
 
 Built for **ETHOnline 2026**.
 
@@ -106,53 +109,68 @@ It is the person or team already delegating work to software and asking:
 
 The canonical useOmnis mandate is:
 
-> **"Pay this contractor 50 USDC, but check the wallet first. Spend no more than $0.05 checking."**
+> **"Pay this contractor 0.10 USDC, but check the wallet first. Spend no more than $0.05 checking."**
 
 Omnis turns that one sentence into explicit financial boundaries:
 
 | Part | Meaning |
 |---|---|
 | Outcome | Pay the contractor |
-| Requested amount | 50 USDC |
+| Final payment | 0.10 USDC |
 | Dependency | Check the recipient wallet first |
 | Service budget | Maximum $0.05 |
 | Discovered service | Wallet activity check |
 | Service price | $0.003 |
+| Remaining after service | $0.047 |
+| Machine rail | Hedera Testnet x402/HTS USDC |
+| Final rail | Arc Testnet USDC on Arc Testnet |
 | Agent authority | May purchase the service within policy |
 | Human boundary | Final contractor payment requires explicit approval |
 | Proof | Preserve service payment, observations, approval, and settlement evidence |
 
-The live-proven demo flow is:
+The shipped flow is:
 
 ```text
-User mandate
+Human intent
     |
     v
-Deterministic intent + policy
+Groq semantic interpretation
     |
     v
-Service discovery
+Deterministic evidence/value validation
     |
     v
-$0.003 x402 purchase on Hedera
+Capability discovery
     |
     v
-Wallet observations
+Bounded service candidates
     |
     v
-Human approval boundary
+Groq service recommendation
     |
     v
-Privy embedded execution wallet
+Deterministic recommendation verification
     |
     v
-Arc Testnet USDC settlement
+P2 service-spend authorization
     |
     v
-Onchain reconciliation
+Explicit user Run action
     |
     v
-OmnisProof
+Hedera x402 purchase
+    |
+    v
+Service evidence
+    |
+    v
+Human final-payment approval
+    |
+    v
+Arc USDC settlement
+    |
+    v
+Proof
 ```
 
 ---
@@ -164,9 +182,12 @@ The current hackathon MVP has been exercised with real testnet economic actions.
 ### Live-proven
 
 - conversational task workspace;
-- deterministic payment, budget, recipient, and policy parsing;
+- Groq semantic interpretation with deterministic evidence and value
+  validation;
+- deterministic payment, budget, recipient, and policy authority;
 - bounded service budgets using integer atomic-unit accounting;
 - deterministic service discovery;
+- bounded Groq service recommendation with deterministic verification;
 - a live x402-gated wallet-activity service on Hedera Testnet;
 - real x402 v2 payments settled through Blocky402;
 - HTS USDC service payment at exactly `3000` atomic units, or `$0.003`;
@@ -178,7 +199,8 @@ The current hackathon MVP has been exercised with real testnet economic actions.
 - read-only reconciliation with exact ERC-20 `Transfer` log verification;
 - no automatic retry after ambiguous signing or submission;
 - multi-rail proof that keeps machine spend separate from final settlement;
-- truthful test-mode semantics that do not pretend a `0.01 USDC` test transfer fulfilled a `50 USDC` mandate.
+- truthful test-mode semantics that do not pretend a `0.01 USDC` test transfer
+  fulfilled a `0.10 USDC` mandate.
 
 ### Not yet claimed as live-proven
 
@@ -189,7 +211,8 @@ These are product-direction items, not current hackathon claims:
 - production multichain settlement;
 - Circle Unified Balance as the funding source for the flagship flow;
 - a fully LLM-driven financial planner;
-- the original `50 USDC` contractor mandate being executed in the test-mode proof shown below.
+- the `0.10 USDC` contractor mandate being executed in the test-mode proof
+  shown below.
 
 We intentionally keep the README explicit about that boundary.
 
@@ -229,7 +252,8 @@ An unpaid call returns `402 Payment Required`. A valid paid request returns fact
 
 [`0xe16824170d9fb8bf8551be3877a80a425328a21ca158b21201301e6b087f7b7d`](https://testnet.arcscan.app/tx/0xe16824170d9fb8bf8551be3877a80a425328a21ca158b21201301e6b087f7b7d)
 
-The proof bundle records that the original `50 USDC` mandate was **not executed** during this test-mode settlement.
+The proof bundle records that the `0.10 USDC` mandate was **not executed**
+during this test-mode settlement.
 
 ---
 
@@ -271,47 +295,59 @@ An LLM response can never count as transaction truth.
 
 ## Conversational intelligence
 
-The current workspace is conversation-first, but **canonical financial intent is still parsed and validated deterministically**.
+The shipped workspace uses Groq for semantic interpretation and bounded
+service recommendation. The model improves understanding and comparison;
+deterministic validation and P2 remain the authority for anything financial.
 
-The next product milestone is a real LLM reasoning layer that makes the conversation more natural without moving financial authority into the model.
+### Shipped interpretation and recommendation
 
-### What the LLM layer will do
+The request path is:
 
-The LLM may:
+1. Groq extracts semantic slots from the user's natural language.
+2. Deterministic evidence/value validation grounds those slots in the source
+   text, pending intent, task values, and known evidence.
+3. Capability discovery builds a bounded candidate set from the trusted
+   registry and P2 facts.
+4. Groq recommends or compares at most one candidate.
+5. Deterministic verification accepts only a current, executable candidate.
+6. P2 authorizes service spend, and the user explicitly presses `Run`.
 
-- interpret broader natural-language requests;
-- maintain conversational context;
-- ask useful clarifying questions;
-- break a large outcome into subtasks;
-- compare available services;
-- recommend which service to use;
-- explain why a policy blocked an action;
-- synthesize service results;
-- summarize settlement and proof;
-- propose the next action.
+The recommendation card labels verified Groq output `Recommended by Omnis`,
+marks the rationale as `advisory · model suggestion`, and renders
+deterministic `Why this service` facts separately. A recommendation has zero
+spend authority.
 
-### What the LLM layer will never do by itself
+### What the model may and may not do
 
-The LLM will not:
+THE MODEL MAY:
 
-- set or mutate authoritative payment amounts;
-- silently change recipients;
-- bypass spending limits;
-- bypass owner authentication;
-- approve its own restricted payment;
-- sign a transaction;
-- decide that an onchain payment succeeded;
-- turn uncertain evidence into a confirmed receipt.
+- interpret;
+- clarify;
+- recommend or compare;
+- explain.
 
-The target architecture is:
+THE MODEL MAY NOT:
+
+- sign;
+- authorize spend;
+- bypass P2;
+- invent financial truth;
+- mark settlement complete;
+- create proof.
+
+The shipped architecture is:
 
 ```mermaid
 flowchart TD
-    U["User: natural-language mandate"] --> L["Conversational LLM planner<br/>interpret, clarify, explain, recommend"]
-    L --> V["Deterministic intent verifier<br/>recipient, amount, budget, asset, rules"]
+    U["Human intent"] --> L["Groq semantic interpretation<br/>interpret, clarify, explain"]
+    L --> V["Deterministic evidence/value validation<br/>recipient, amount, budget, asset, rules"]
     V --> P["Policy engine<br/>hard spending and approval boundaries"]
     P --> D["Service discovery"]
-    D --> H["Hedera x402 / Blocky402<br/>machine-service purchase"]
+    D --> N["Groq service recommendation"]
+    N --> Q["Deterministic recommendation verification"]
+    Q --> G["P2 service-spend authorization"]
+    G --> X["Explicit user Run action"]
+    X --> H["Hedera x402 / Blocky402<br/>machine-service purchase"]
     H --> E["Service evidence"]
     E --> L
     E --> A["Human approval boundary"]
@@ -320,10 +356,11 @@ flowchart TD
     R --> C["Read-only onchain reconciliation"]
     C --> O["OmnisProof"]
 
-    L -. "never signs or sets authoritative tx parameters" .-> P
+    L -. "no spend authority" .-> P
 ```
 
-This keeps the part that should be flexible inside the model and the part that moves money inside deterministic code.
+This keeps language understanding and comparison flexible while the parts
+that move money remain deterministic and human-gated.
 
 ---
 
@@ -389,9 +426,9 @@ flowchart LR
 **Flexible:**
 
 - conversation;
-- future LLM reasoning;
+- Groq semantic interpretation;
 - explanation;
-- service recommendation;
+- bounded service recommendation;
 - result synthesis.
 
 **Deterministic:**
@@ -469,7 +506,7 @@ The next settlement milestone is to let Omnis source USDC from unified liquidity
 
 ---
 
-## From current MVP to the product vision
+## From shipped MVP to the product vision
 
 The current MVP proves:
 
@@ -482,7 +519,7 @@ Intent
 -> proof
 ```
 
-The product vision expands that to:
+Future product direction expands that to:
 
 ```text
 Intent
@@ -497,7 +534,7 @@ Intent
 
 The user should eventually be able to say:
 
-> **"Pay Alice 50 USDC."**
+> **"Pay Alice 0.10 USDC."**
 
 and not care:
 
@@ -509,7 +546,8 @@ and not care:
 
 The rails should disappear.
 
-Control and proof should remain visible.
+Control and proof should remain visible. These routing capabilities are not
+claimed as shipped universal cross-chain behavior.
 
 ---
 
@@ -640,8 +678,9 @@ Financial state is rendered from persisted domain state, not fabricated chat cop
 | Capability | Status |
 |---|---|
 | Conversation-first product UI | Live |
-| Deterministic financial intent parsing | Live |
-| LLM conversational reasoning | Next milestone |
+| Groq semantic interpretation | Live, bounded and fail-closed |
+| Deterministic evidence/value validation | Live |
+| Bounded Groq service recommendation | Live, verified before use |
 | Deterministic policy engine | Live |
 | Service discovery | Live |
 | Hedera x402 service | Live |
@@ -669,6 +708,8 @@ Financial state is rendered from persisted domain state, not fabricated chat cop
 | Application | Next.js 16, React 19, TypeScript |
 | UI | React, CSS |
 | Testing | Playwright |
+| LLM interpretation | Groq OpenAI-compatible API, GPT-OSS 20B default |
+| Recommendation | Groq strict JSON Schema plus deterministic verifier |
 | Authentication | Privy |
 | Execution wallet | Privy embedded EVM wallet |
 | Agent policy | Deterministic useOmnis domain engine |
@@ -703,8 +744,10 @@ src/
     thinking-indicator.tsx
   lib/
     auth/
+    conversation/
     domain/
     intent/
+    recommendation/
     services/
       hedera-x402/
       server/
@@ -723,16 +766,7 @@ docs/
   submission-evidence.md
 
 tests/
-  p1-*.spec.ts
-  p2-*.spec.ts
-  p3-*.spec.ts
-  p4a-*.spec.ts
-  p4b-*.spec.ts
-  p5a-*.spec.ts
-  p6a-*.spec.ts
-  p6b-*.spec.ts
-  p7-*.spec.ts
-  p8a-*.spec.ts
+  automated domain and browser regression coverage
 ```
 
 ---
@@ -783,6 +817,11 @@ HEDERA_X402_SERVICE_ACCOUNT_ID=
 BLOCKY402_TESTNET_URL=https://api.testnet.blocky402.com
 
 OMNIS_PUBLIC_ORIGIN=
+
+OMNIS_LLM_PROVIDER=groq
+OMNIS_LLM_MODEL=openai/gpt-oss-20b
+OMNIS_LLM_API_KEY=
+OMNIS_LLM_BASE_URL=https://api.groq.com/openai/v1
 ```
 
 Demo and deployment-specific flags are documented in:
@@ -809,15 +848,17 @@ http://localhost:3000/app
 
 ## Testing
 
-The final P8B verification reported:
+The latest observed repository-wide run reported:
 
 ```text
-382 tests passed
-lint: passed
-typecheck: passed
-build: passed
-check:no-em-dash: passed
+732 passed
+1 failed response-motion timing test
+1 flaky screenshot test
 ```
+
+The response-motion test passes 8/8 in isolation. Lint, typecheck, build,
+and no-em-dash checks all passed. The full suite is intentionally not rerun
+during this packaging phase.
 
 Run:
 
@@ -905,9 +946,9 @@ Privy is central to:
 ### Immediate
 
 - complete public deployment and hosted smoke tests;
-- prove one small exact mandate where requested payment equals executed payment;
-- add the real LLM conversational planner while keeping money deterministic;
-- record the final ETHOnline demo and submission.
+- record the final ETHOnline demo with the verified recommendation and
+  explicit Run and approval gates;
+- submit the final ETHOnline package and evidence.
 
 ### Next
 
@@ -945,9 +986,26 @@ Privy is central to:
 
 ## Start Fresh
 
-useOmnis was created as a fresh ETHOnline 2026 project and is presented as a new product/repository rather than as a continuation of the earlier OmnisRouter codebase.
+The repository history begins with `first commit` on 2026-09-11. It is
+followed by commits titled `build useOmnis hackathon MVP`, `build useOmnis
+ETHOnline MVP`, and `added license and readme`. On that verified history,
+useOmnis is a fresh repository/project created for ETHOnline 2026.
 
-The Git repository itself was initialized later in the build process, so commit timestamps do not represent the full chronology of implementation. No backdated or fabricated Git history is claimed.
+Earlier conceptual experiments are distinct from this repository: they are
+not represented as ancestors or source lineage in this Git history. No
+backdated, fabricated, or reconstructed history is claimed.
+
+### Major libraries and SDKs
+
+- Next.js 16.3.4, React 19.2.8, and TypeScript 5
+- Tailwind CSS 4
+- Playwright 1.63 with axe-core for browser testing
+- viem 2.56 for EVM transactions and reconciliation
+- `@x402/core` and `@x402/hedera` 2.25 for x402 payments
+- Privy Node and React Auth SDKs for authentication and embedded wallets
+- Circle App Kit and `@circle-fin/adapter-viem-v2`
+- GSAP, `@gsap/react`, Lenis, and Lucide React for the interface
+- jose and server-only for server-side auth and module boundaries
 
 ---
 

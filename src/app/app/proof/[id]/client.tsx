@@ -568,7 +568,7 @@ export default function ProofRecordPage({
           }}
         >
           <span style={{ fontFamily: "JetBrains Mono", fontSize: "12px", textTransform: "uppercase" }}>
-            service verification (P4A / P4B)
+            service evidence
           </span>
           <h3 style={{ fontSize: "20px", marginTop: "4px", marginBottom: "16px" }}>
             Wallet activity check
@@ -624,8 +624,8 @@ export default function ProofRecordPage({
         >
           <span style={{ fontFamily: "JetBrains Mono", fontSize: "12px", textTransform: "uppercase" }}>
             {proof.testMode
-              ? "final settlement (P6B TEST MODE)"
-              : "final settlement (P6A / P6B)"}
+              ? "final settlement (Arc test mode)"
+              : "final settlement (Arc Testnet)"}
           </span>
           <h3 style={{ fontSize: "20px", marginTop: "4px", marginBottom: "16px" }}>
             {proof.testMode ? "Arc Testnet Demo Settlement" : "Arc Testnet Transfer"}

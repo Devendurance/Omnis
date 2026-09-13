@@ -50,18 +50,58 @@ is required by the architecture.
   authoritative. The authoritative boundary is the fixed wallet-activity
   service, the fixed 3000-unit testnet HTS USDC amount, the narrow payer
   endpoint allowlist, and the small payer funding.
-- `ENABLE_P6B_TEST_MODE`: authorizes P6B test mode on a hosted deployment.
+- `ENABLE_P6B_TEST_MODE`: authorizes Arc test mode on a hosted deployment.
   Without it, test-mode requests get 403.
-- `OMNIS_P4A_SPIKE_TOKEN`: caller secret for the dev-only x402 entrypoint.
+- `OMNIS_P4A_SPIKE_TOKEN`: caller secret for the development-only x402 entrypoint.
   The dev route returns 404 in production regardless of this value.
 
-### OPTIONAL DEMO
+### CONVERSATION (Groq, optional)
 
-- `ARC_TESTNET_FALLBACK_API_URL` / `ARC_TESTNET_RPC_FALLBACK_URL`: optional
-  Arc endpoints. Defaults point at the public Arc Testnet RPC and ArcScan.
-- `OMNIS_ALLOW_MOCK_AUTH`: test and local development only. Mock tokens are
-  rejected in production unless this is explicitly `true`. Never set it to
-  `true` on the public deployment.
+- `NEXT_PUBLIC_OMNIS_CONVERSATION_ENABLED`: set to `true` to enable the
+  conversational task surface in the client. Server model calls still fail
+  closed to the deterministic fallback when unconfigured.
+- `OMNIS_LLM_PROVIDER`: set to `groq` for the first real provider. Legacy
+  `OPENAI_API_KEY` compatibility remains for local development only and is
+  not the documented Groq configuration.
+- `OMNIS_LLM_MODEL`: Groq model id. The production default is
+  `openai/gpt-oss-20b`. The other supported strict-output id is
+  `openai/gpt-oss-120b`, selected as an opt-in by this variable alone.
+- `OMNIS_LLM_API_KEY`: Groq API key, server-only. Never use a
+  `NEXT_PUBLIC_*` variable for this value.
+- `OMNIS_LLM_BASE_URL`: canonical `https://api.groq.com/openai/v1`.
+  For exactly `openai/gpt-oss-20b` and `openai/gpt-oss-120b`, `POST
+  /chat/completions` uses `temperature 0.2`,
+  `max_completion_tokens 2048`, `reasoning_effort low`,
+  `include_reasoning false`, and strict `response_format json_schema`.
+  The GPT-OSS path does not send `reasoning_format: hidden`; it is mutually
+  exclusive with `include_reasoning: false`. The response is validated and
+  reconciled through the unchanged deterministic proposal boundary. Other
+  Groq models and OpenAI-compatible endpoints use plain
+  `response_format json_object` with the legacy `max_tokens 800` setting and
+  no GPT-OSS reasoning fields.
+- `/api/services/recommendation` mirrors the GPT-OSS values and uses its own
+  strict recommendation schema. Its output is verified before presentation
+  and never authorizes spend.
+
+### CONVERSATION TESTING (mock in CI, Groq in production)
+
+Automated tests use a deterministic mock conversational provider and
+perform zero external LLM calls. Real Groq compatibility is verified via
+a manual no-payment production smoke test.
+
+- The Playwright test server always rebuilds with explicit test env
+  (`NEXT_PUBLIC_OMNIS_CONVERSATION_ENABLED=true`,
+  `OMNIS_LLM_PROVIDER=mock`, blanked `OMNIS_LLM_API_KEY`), never the
+  ambient `.env.local`. Stale servers are never reused.
+- No automated test calls `api.groq.com` or `api.openai.com`. The
+  hermetic conversation suite fails on any such attempt and proves the mock
+  serves conversation-enabled browser coverage.
+- `POST /api/conversation` performs interpretation only. It is not a
+  financial write; service purchase, approval, and settlement routes are.
+- Manual Groq smoke (no payment): deploy with the Groq variables above,
+  open `/app`, submit the flagship wallet-check prompt, confirm the plan
+  renders with approval required, and stop before any approval or purchase.
+
 ## Vercel setup
 
 1. Import the public GitHub repository (`https://github.com/Devendurance/Omnis`).
@@ -111,12 +151,12 @@ is required by the architecture.
   challenge. When the best-effort demo allowance is used, the UI points at
   the verified demo evidence.
 
-## P6B test mode
+## Arc test mode
 
-- Production test mode requires `ENABLE_P6B_TEST_MODE=true` on the server.
+- Production Arc test mode requires `ENABLE_P6B_TEST_MODE=true` on the server.
   A client query flag alone cannot enable it.
 - Test mode executes a 0.01 USDC infrastructure check on Arc Testnet. The
-  original 50 USDC contractor mandate is never executed in test mode.
+  flagship 0.10 USDC contractor mandate is never executed in test mode.
 
 ## Post-deploy smoke commands
 
