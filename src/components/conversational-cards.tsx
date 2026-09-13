@@ -21,6 +21,7 @@ import type {
 } from "@/lib/domain";
 import { formatMoney } from "@/lib/domain";
 import { getTaskBudgetState } from "@/lib/tasks/runtime";
+import { resolveBudgetPrePurchaseNote } from "@/lib/tasks/presentation";
 import { isServiceExecutionOffered } from "@/lib/tasks/execution-gate";
 import type { TaskPlanView } from "@/lib/tasks";
 import type { TaskDiscoveryState } from "@/lib/tasks/session";
@@ -206,14 +207,23 @@ export function InlineTaskPlanCard({
   );
 }
 
+export {
+  BUDGET_NOTE_CATALOG_ONLY,
+  BUDGET_NOTE_PRE_PURCHASE,
+  hasExecutableServiceCandidate,
+  resolveBudgetPrePurchaseNote,
+} from "@/lib/tasks/presentation";
+
 export function InlineTaskBudgetCard({
   task,
   policy,
   servicePurchases,
+  hasExecutableService,
 }: {
   task: FinancialTask;
   policy: TaskPolicy;
   servicePurchases: readonly ServicePurchase[];
+  hasExecutableService?: boolean;
 }) {
   const state = getTaskBudgetState(task, policy, servicePurchases);
   const budget = state.configuredServiceBudget;
@@ -252,7 +262,7 @@ export function InlineTaskBudgetCard({
       </div>
       <p className="conversational-budget-note muted">
         {servicePurchases.length === 0
-          ? "Catalog-only. No service was purchased."
+          ? resolveBudgetPrePurchaseNote(hasExecutableService)
           : `Observed ${servicePurchases.length} service interaction(s).`}
       </p>
     </div>

@@ -49,12 +49,14 @@ import {
   LOCAL_DRAFT_OWNER_ID,
   archiveTaskSession,
   getTaskBudgetState,
+  hasExecutableServiceCandidate,
   isServiceExecutionOffered,
   hydrateDraftSession,
   loadDraftSession,
   orchestrateFinancialIntent,
   saveDraftSession,
   serializeDraftSession,
+  selectPlanConfirmation,
   selectTaskPlanView,
   retainMessagesForTask,
   canStartNewTask,
@@ -1757,6 +1759,12 @@ export function Composer() {
                     task={sessionForRender.task}
                     policy={sessionForRender.policy}
                     servicePurchases={sessionForRender.servicePurchases ?? []}
+                    hasExecutableService={hasExecutableServiceCandidate({
+                      task: sessionForRender.task,
+                      policy: sessionForRender.policy,
+                      registry,
+                      existingPurchases: sessionForRender.servicePurchases ?? [],
+                    })}
                   />
 
                   {(!sessionForRender.servicePurchases ||
@@ -2162,6 +2170,21 @@ export function Composer() {
                       : taskReplaced
                         ? undefined
                         : current.discovery;
+                  // Deterministic plan confirmation: a strong fact-bearing
+                  // model message is preserved, but a generic line yields to
+                  // the synthesized confirmation built from validated task
+                  // and policy state. This selects display copy only; it never
+                  // weakens structured validation or financial truth.
+                  const plannedCopy =
+                    result.kind === "planned" && result.task && result.policy && !taskReplaced
+                      ? selectPlanConfirmation({
+                          ...(modelCopy ? { modelCopy } : {}),
+                          task: result.task,
+                          policy: result.policy,
+                          genericCopy:
+                            "I can do that. I'll check the wallet before preparing the payment.",
+                        })
+                      : undefined;
                   const omnisMessage: ChatMessage = Object.freeze({
                     id: submitOmnisMessageId,
                     role: "omnis",
@@ -2169,10 +2192,13 @@ export function Composer() {
                     content:
                       gate === "clarify"
                         ? (result.kind === "planned"
-                          ? (modelCopy ?? "I can do that. I'll check the wallet before preparing the payment.")
+                          ? (plannedCopy ??
+                            modelCopy ??
+                            "I can do that. I'll check the wallet before preparing the payment.")
                           : (result.clarification ?? gateMessage ?? "Tell Omnis what needs to be paid or researched."))
                         : result.kind === "planned"
-                          ? (modelCopy ??
+                          ? (plannedCopy ??
+                            modelCopy ??
                             (taskReplaced
                               ? "Got it. I have updated the plan below. Prior checks for the old plan no longer apply."
                               : "I can do that. I'll check the wallet before preparing the payment."))

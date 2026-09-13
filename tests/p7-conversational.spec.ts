@@ -338,10 +338,11 @@ test.describe("P7 Conversational useOmnis Agent Experience", () => {
     await input.fill(CONTRACTOR_WALLET);
     await page.getByRole("button", { name: "Submit task" }).click();
 
-    // Model unavailable: the deterministic fallback copy stays exact.
+    // Model unavailable: the deterministic confirmation is synthesized from
+    // the validated task (50 USDC, $0.05 budget, approval boundary).
     await expect(
       page.getByText(
-        "I can do that. I'll check the wallet before preparing the payment.",
+        "Got it. I will check the recipient's wallet first, using up to $0.05 for the check. The 50 USDC payment will still require your approval.",
       ),
     ).toBeVisible({ timeout: 10_000 });
 
